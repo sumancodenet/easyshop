@@ -27,11 +27,11 @@
 </nav>
 
 <!-- SITE INFO FOOTER (lightweight) -->
-<footer class="site-footer">
+<!-- <footer class="site-footer">
   <div class="container">
     <div class="d-flex flex-wrap justify-content-between align-items-center py-3 gap-2">
       <div class="small text-muted">
-        &copy; <?php echo date('Y'); ?> EasyShop. All rights reserved.
+        &copy; <?php // echo date('Y'); ?> EasyShop. All rights reserved.
       </div>
       <div class="d-flex gap-3 small text-muted">
         <a href="#" class="text-muted text-decoration-none">Privacy</a>
@@ -40,7 +40,7 @@
       </div>
     </div>
   </div>
-</footer>
+</footer> -->
 
 <div class="toast-container" id="toastContainer"></div>
 

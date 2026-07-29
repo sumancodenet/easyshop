@@ -1,8 +1,7 @@
-<?php require_once 'includes/config.php'; include 'includes/header.php';
-
+<?php require_once 'includes/config.php';
 $error = $success = '';
+$is_register = isset($_GET['register']);
 
-// Redirect if already logged in
 if (isset($_SESSION['user'])) {
   header('Location: account.php');
   exit;
@@ -48,74 +47,104 @@ if (isset($_POST['register'])) {
       $hash = password_hash($password, PASSWORD_DEFAULT);
       $q = mysqli_query($conn, "INSERT INTO users (name, email, phone, password) VALUES ('$name', '$email', '$phone', '$hash')");
       if ($q) {
-        $success = 'Account created! Please login.';
+        $success = 'Account created successfully! Please sign in.';
+        $is_register = false;
       } else {
         $error = 'Registration failed: ' . mysqli_error($conn);
       }
     }
   }
 }
-?>
-<div class="container py-4" style="max-width:480px;">
-  <h4 style="font-weight:800;margin-bottom:20px;text-align:center;"><?php echo isset($_GET['register']) ? 'Create Account' : 'Sign In'; ?></h4>
 
-  <?php if ($error): ?>
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;color:#dc2626;font-size:13px;font-weight:500;"><i class="bi bi-exclamation-circle" style="font-size:18px;"></i> <?php echo $error; ?></div>
-  <?php endif; ?>
-  <?php if ($success): ?>
-    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;color:#16a34a;font-size:13px;font-weight:500;"><i class="bi bi-check-circle" style="font-size:18px;"></i> <?php echo $success; ?></div>
-  <?php endif; ?>
+include 'includes/header.php'; ?>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-header">
+      <a href="index.php" class="brand">Easy<span>Shop</span></a>
+      <p><?php echo $is_register ? 'Create your account to get started' : 'Welcome back! Sign in to your account'; ?></p>
+    </div>
+    <div class="auth-body">
+      <div class="auth-tabs">
+        <a href="login.php" class="<?php echo !$is_register ? 'active' : ''; ?>"><i class="bi bi-box-arrow-in-right me-1"></i>Sign In</a>
+        <a href="login.php?register=1" class="<?php echo $is_register ? 'active' : ''; ?>"><i class="bi bi-person-plus me-1"></i>Register</a>
+      </div>
 
-  <?php if (!isset($_GET['register'])): ?>
-    <!-- LOGIN FORM -->
-    <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:24px;">
-      <form method="POST">
-        <div style="margin-bottom:14px;">
-          <label style="font-size:13px;font-weight:600;color:#555;margin-bottom:4px;display:block;">Email or Phone</label>
-          <input type="text" name="email_phone" class="form-control" required placeholder="your@email.com or 9876543210">
+      <?php if ($error): ?>
+        <div class="auth-alert error"><i class="bi bi-exclamation-circle"></i> <?php echo $error; ?></div>
+      <?php endif; ?>
+      <?php if ($success): ?>
+        <div class="auth-alert success"><i class="bi bi-check-circle"></i> <?php echo $success; ?></div>
+      <?php endif; ?>
+
+      <?php if (!$is_register): ?>
+        <!-- LOGIN FORM -->
+        <form method="POST">
+          <div class="auth-field">
+            <input type="text" name="email_phone" class="form-control" required placeholder="Email or phone number">
+            <i class="bi bi-envelope input-icon"></i>
+          </div>
+          <div class="auth-field">
+            <input type="password" name="password" id="loginPass" class="form-control" required placeholder="Password">
+            <i class="bi bi-lock input-icon"></i>
+            <button type="button" class="toggle-pass" onclick="togglePass('loginPass',this)"><i class="bi bi-eye"></i></button>
+          </div>
+          <button type="submit" name="login" class="btn-auth"><i class="bi bi-box-arrow-in-right"></i> Sign In</button>
+        </form>
+        <div class="auth-divider">or continue with</div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-secondary flex-fill" style="border-radius:12px;height:44px;font-size:14px;font-weight:600;" disabled><i class="bi bi-google"></i> Google</button>
+          <button class="btn btn-outline-secondary flex-fill" style="border-radius:12px;height:44px;font-size:14px;font-weight:600;" disabled><i class="bi bi-facebook"></i> Facebook</button>
         </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:13px;font-weight:600;color:#555;margin-bottom:4px;display:block;">Password</label>
-          <input type="password" name="password" class="form-control" required placeholder="••••••">
-        </div>
-        <button type="submit" name="login" class="btn-red" style="width:100%;padding:12px;font-size:15px;"><i class="bi bi-box-arrow-in-right"></i> Sign In</button>
-      </form>
-      <div style="text-align:center;margin-top:16px;font-size:13px;color:#999;">
-        Don't have an account? <a href="login.php?register=1" style="color:var(--red);font-weight:600;">Register</a>
-      </div>
+        <p class="text-center mt-3 mb-0" style="font-size:13px;color:#999;">
+          Don't have an account? <a href="login.php?register=1" style="color:var(--red);font-weight:600;">Register</a>
+        </p>
+
+      <?php else: ?>
+        <!-- REGISTER FORM -->
+        <form method="POST">
+          <div class="auth-field">
+            <input type="text" name="name" class="form-control" required placeholder="Full name">
+            <i class="bi bi-person input-icon"></i>
+          </div>
+          <div class="auth-field">
+            <input type="email" name="email" class="form-control" required placeholder="Email address">
+            <i class="bi bi-envelope input-icon"></i>
+          </div>
+          <div class="auth-field">
+            <input type="text" name="phone" class="form-control" placeholder="Phone number (optional)">
+            <i class="bi bi-telephone input-icon"></i>
+          </div>
+          <div class="auth-field">
+            <input type="password" name="password" id="regPass" class="form-control" required placeholder="Password (min 6 characters)">
+            <i class="bi bi-lock input-icon"></i>
+            <button type="button" class="toggle-pass" onclick="togglePass('regPass',this)"><i class="bi bi-eye"></i></button>
+          </div>
+          <div class="auth-field">
+            <input type="password" name="cpassword" id="regCPass" class="form-control" required placeholder="Confirm password">
+            <i class="bi bi-lock-fill input-icon"></i>
+            <button type="button" class="toggle-pass" onclick="togglePass('regCPass',this)"><i class="bi bi-eye"></i></button>
+          </div>
+          <button type="submit" name="register" class="btn-auth"><i class="bi bi-person-plus"></i> Create Account</button>
+        </form>
+        <p class="text-center mt-3 mb-0" style="font-size:13px;color:#999;">
+          Already have an account? <a href="login.php" style="color:var(--red);font-weight:600;">Sign In</a>
+        </p>
+      <?php endif; ?>
     </div>
-  <?php else: ?>
-    <!-- REGISTER FORM -->
-    <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:24px;">
-      <form method="POST">
-        <div style="margin-bottom:14px;">
-          <label style="font-size:13px;font-weight:600;color:#555;margin-bottom:4px;display:block;">Full Name</label>
-          <input type="text" name="name" class="form-control" required placeholder="John Doe">
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:13px;font-weight:600;color:#555;margin-bottom:4px;display:block;">Email</label>
-          <input type="email" name="email" class="form-control" required placeholder="your@email.com">
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:13px;font-weight:600;color:#555;margin-bottom:4px;display:block;">Phone</label>
-          <input type="text" name="phone" class="form-control" placeholder="+91 98765 43210">
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:13px;font-weight:600;color:#555;margin-bottom:4px;display:block;">Password</label>
-          <input type="password" name="password" class="form-control" required placeholder="Min 6 characters">
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:13px;font-weight:600;color:#555;margin-bottom:4px;display:block;">Confirm Password</label>
-          <input type="password" name="cpassword" class="form-control" required placeholder="Repeat password">
-        </div>
-        <small style="color:#999;display:block;margin-bottom:14px;">You can add your address later in your account settings.</small>
-        <button type="submit" name="register" class="btn-red" style="width:100%;padding:12px;font-size:15px;"><i class="bi bi-person-plus"></i> Create Account</button>
-      </form>
-      <div style="text-align:center;margin-top:16px;font-size:13px;color:#999;">
-        Already have an account? <a href="login.php" style="color:var(--red);font-weight:600;">Sign In</a>
-      </div>
-    </div>
-  <?php endif; ?>
+  </div>
 </div>
+
+<script>
+function togglePass(id, btn) {
+  var inp = document.getElementById(id);
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.innerHTML = '<i class="bi bi-eye-slash"></i>';
+  } else {
+    inp.type = 'password';
+    btn.innerHTML = '<i class="bi bi-eye"></i>';
+  }
+}
+</script>
 
 <?php include 'includes/footer.php'; ?>
