@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   description TEXT DEFAULT NULL,
+  image VARCHAR(255) DEFAULT NULL,
   status TINYINT DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -125,6 +126,7 @@ CREATE TABLE IF NOT EXISTS addresses (
   user_id INT NOT NULL,
   label VARCHAR(50) DEFAULT 'Home',
   address TEXT NOT NULL,
+  pincode VARCHAR(10) DEFAULT NULL,
   is_default TINYINT DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -140,3 +142,52 @@ CREATE TABLE IF NOT EXISTS settings (
 INSERT INTO settings (`key`, `value`) VALUES
 ('platform_fee_percent', '5'),
 ('platform_fee_fixed', '0');
+
+-- Banners table
+CREATE TABLE IF NOT EXISTS banners (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(200) DEFAULT NULL,
+  subtitle VARCHAR(200) DEFAULT NULL,
+  description TEXT DEFAULT NULL,
+  link VARCHAR(255) DEFAULT NULL,
+  image VARCHAR(255) NOT NULL,
+  status TINYINT DEFAULT 1,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO banners (title, subtitle, link, image, sort_order) VALUES
+('Fashion That Speaks Volumes', 'Discover the latest trends for every occasion', 'shop.php', '', 1),
+('Up to 70% Off', 'Massive sale on top fashion brands', 'shop.php', '', 2),
+('Free Delivery Across India', 'No minimum order. Shop worry-free.', 'shop.php', '', 3);
+
+-- Pincodes table for delivery estimation
+CREATE TABLE IF NOT EXISTS pincodes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  pincode VARCHAR(10) NOT NULL UNIQUE,
+  delivery_days INT NOT NULL DEFAULT 5,
+  cod_available TINYINT DEFAULT 1,
+  status TINYINT DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO pincodes (pincode, delivery_days, cod_available) VALUES
+('110001', 3, 1), ('110002', 3, 1), ('110003', 3, 1),
+('400001', 4, 1), ('400002', 4, 1), ('700001', 5, 1),
+('600001', 4, 1), ('500001', 4, 1), ('560001', 4, 1),
+('380001', 4, 1), ('302001', 4, 1), ('226001', 5, 1),
+('201301', 2, 1), ('122001', 2, 1), ('411001', 4, 1),
+('462001', 5, 0), ('452001', 5, 0);
+
+-- Product views table for recommendations
+CREATE TABLE IF NOT EXISTS product_views (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT DEFAULT NULL,
+  session_id VARCHAR(64) DEFAULT NULL,
+  product_id INT NOT NULL,
+  category_id INT DEFAULT NULL,
+  viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  KEY (user_id),
+  KEY (session_id),
+  KEY (category_id)
+);

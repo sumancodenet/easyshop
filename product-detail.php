@@ -39,6 +39,20 @@ if ($user) {
   foreach ($reviews as $rv) { if ($rv['user_id'] == $user['id']) { $user_reviewed = true; break; } }
 }
 
+// Default address pincode for auto-delivery check
+$default_pincode = '';
+if ($user) {
+  $dp_q = mysqli_query($conn, "SELECT pincode FROM addresses WHERE user_id={$user['id']} AND is_default=1 AND pincode IS NOT NULL AND pincode!='' LIMIT 1");
+  if ($dp_q && $dp_row = mysqli_fetch_assoc($dp_q)) {
+    $default_pincode = $dp_row['pincode'];
+  }
+}
+
+// Track product view
+$session_id = session_id();
+$uid_sql = $user ? $user['id'] : 'NULL';
+mysqli_query($conn, "INSERT INTO product_views (user_id, session_id, product_id, category_id) VALUES ($uid_sql, '$session_id', $id, {$p['category_id']})");
+
 // Handle review submission
 $rev_error = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_review']) && $user) {
@@ -114,6 +128,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_review']) && $u
           <span id="qty" style="padding:8px 14px;font-size:15px;font-weight:600;min-width:40px;text-align:center;">1</span>
           <button onclick="qty(1)" style="border:none;background:none;padding:8px 14px;cursor:pointer;font-size:16px;font-weight:600;">+</button>
         </div>
+      </div>
+
+      <!-- PIN Code Check -->
+      <div class="pincode-check">
+        <label style="font-size:13px;font-weight:600;color:#555;display:block;margin-bottom:6px;"><i class="bi bi-geo-alt"></i> Check Delivery Date</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="pincodeInput" class="form-control" placeholder="Enter PIN code" maxlength="6" style="width:160px;font-size:13px;text-transform:uppercase;" onkeydown="if(event.key==='Enter')checkPincode()">
+          <button onclick="checkPincode()" class="btn-outline-red" style="padding:8px 18px;font-size:13px;white-space:nowrap;">Check</button>
+        </div>
+        <div id="pincodeResult" style="margin-top:8px;font-size:13px;"></div>
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -326,6 +350,38 @@ function toggleWishlist(id, btn) {
     }
   };
   x.send('id=' + id);
+}
+
+var defaultPincode = '<?php echo $default_pincode; ?>';
+if (defaultPincode) {
+  document.getElementById('pincodeInput').value = defaultPincode;
+  document.addEventListener('DOMContentLoaded', function() { checkPincode(); });
+}
+
+function checkPincode() {
+  var pincode = document.getElementById('pincodeInput').value.trim();
+  var result = document.getElementById('pincodeResult');
+  if (!/^\d{6}$/.test(pincode)) {
+    result.innerHTML = '<span style="color:#dc2626;"><i class="bi bi-exclamation-circle"></i> Enter a valid 6-digit PIN code</span>';
+    return;
+  }
+  result.innerHTML = '<span style="color:#999;"><i class="bi bi-hourglass-split"></i> Checking...</span>';
+  var x = new XMLHttpRequest();
+  x.open('POST', 'pincode_ajax.php', true);
+  x.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+  x.onload = function() {
+    var r = JSON.parse(this.responseText);
+    if (r.success) {
+      var codHtml = r.cod_available ? '<span style="color:#059669;"><i class="bi bi-cash"></i> COD Available</span>' : '<span style="color:#dc2626;"><i class="bi bi-x-circle"></i> COD Not Available</span>';
+      result.innerHTML = '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><i class="bi bi-check-circle" style="color:#16a34a;"></i> <span style="font-weight:600;color:#16a34a;">Delivery available!</span></div>' +
+        '<div style="font-size:12px;color:#555;">Estimated delivery by <strong>' + r.estimated_date + '</strong></div>' +
+        '<div style="font-size:12px;color:#555;margin-top:2px;">' + codHtml + '</div></div>';
+    } else {
+      result.innerHTML = '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;color:#dc2626;font-size:12px;"><i class="bi bi-x-circle"></i> ' + r.message + '</div>';
+    }
+  };
+  x.send('pincode=' + pincode);
 }
 </script>
 

@@ -39,6 +39,7 @@ $categories = $categories_q ? $categories_q : false;
       <thead>
         <tr>
           <th style="width:50px;">#</th>
+          <th>Image</th>
           <th>Name</th>
           <th>Description</th>
           <th>Status</th>
@@ -47,9 +48,18 @@ $categories = $categories_q ? $categories_q : false;
       </thead>
       <tbody>
         <?php if ($categories && mysqli_num_rows($categories) > 0): ?>
-          <?php $i = 1; while ($c = mysqli_fetch_assoc($categories)): ?>
+          <?php $i = 1; while ($c = mysqli_fetch_assoc($categories)):
+            $cimg = $c['image'] && file_exists('../' . $c['image']) ? '../' . $c['image'] : '';
+          ?>
             <tr>
               <td><?php echo $i++; ?></td>
+              <td>
+                <?php if ($cimg): ?>
+                  <img src="<?php echo $cimg; ?>" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:1px solid var(--border-color);">
+                <?php else: ?>
+                  <span style="display:inline-flex;width:44px;height:44px;border-radius:10px;background:var(--red-light);color:var(--red);align-items:center;justify-content:center;font-size:18px;"><i class="bi bi-grid"></i></span>
+                <?php endif; ?>
+              </td>
               <td><strong><?php echo $c['name']; ?></strong></td>
               <td><small style="color:var(--text-muted);"><?php echo substr($c['description'] ?? '', 0, 60); ?></small></td>
               <td>
@@ -68,7 +78,7 @@ $categories = $categories_q ? $categories_q : false;
             </tr>
           <?php endwhile; ?>
         <?php else: ?>
-          <tr><td colspan="5"><div class="empty-state"><div class="empty-icon"><i class="bi bi-tags"></i></div><h6>No categories found</h6><p>Create your first category to organize products.</p><a href="add_category.php" class="btn-red btn-sm"><i class="bi bi-plus-lg"></i> Add Category</a></div></td></tr>
+          <tr><td colspan="6"><div class="empty-state"><div class="empty-icon"><i class="bi bi-tags"></i></div><h6>No categories found</h6><p>Create your first category to organize products.</p><a href="add_category.php" class="btn-red btn-sm"><i class="bi bi-plus-lg"></i> Add Category</a></div></td></tr>
         <?php endif; ?>
       </tbody>
     </table>

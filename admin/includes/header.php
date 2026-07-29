@@ -70,6 +70,13 @@ require_once dirname(__DIR__, 2) . '/includes/config.php';
     </div>
 
     <div class="nav-item">
+      <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'banner') !== false ? 'active' : ''; ?>" href="banners.php">
+        <i class="bi bi-images"></i>
+        <span>Banners</span>
+      </a>
+    </div>
+
+    <div class="nav-item">
       <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'reviews.php' ? 'active' : ''; ?>" href="reviews.php">
         <i class="bi bi-star-fill"></i>
         <span>Reviews</span>

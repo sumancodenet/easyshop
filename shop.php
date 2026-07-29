@@ -7,7 +7,7 @@ $where = "WHERE p.status=1";
 if ($cat_filter) $where .= " AND p.category_id=$cat_filter";
 if ($search) $where .= " AND (p.name LIKE '%$search%' OR p.description LIKE '%$search%')";
 
-$q = mysqli_query($conn, "SELECT p.*, c.name as cat_name FROM products p LEFT JOIN categories c ON p.category_id=c.id $where ORDER BY p.id DESC");
+$q = mysqli_query($conn, "SELECT p.*, c.name as cat_name FROM products p LEFT JOIN categories c ON p.category_id=c.id $where ORDER BY RAND()");
 $products = $q ? $q : false;
 
 $cats_q = mysqli_query($conn, "SELECT * FROM categories WHERE status=1 ORDER BY name");
@@ -33,10 +33,22 @@ if ($cols_q) {
     <div class="col-md-3">
       <div style="background:#f8f9fa;border-radius:12px;padding:20px;border:1px solid #eee;">
         <h6 style="font-weight:700;margin-bottom:14px;font-size:14px;">Categories</h6>
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          <a href="shop.php" style="text-decoration:none;font-size:13px;color:<?php echo !$cat_filter ? 'var(--red)' : '#555'; ?>;font-weight:<?php echo !$cat_filter ? '700' : '400'; ?>;padding:6px 10px;border-radius:6px;background:<?php echo !$cat_filter ? '#fff5f5' : 'transparent'; ?>;">All Products</a>
-          <?php if ($cats): while ($c = mysqli_fetch_assoc($cats)): ?>
-            <a href="shop.php?category=<?php echo $c['id']; ?>" style="text-decoration:none;font-size:13px;color:<?php echo $cat_filter == $c['id'] ? 'var(--red)' : '#555'; ?>;font-weight:<?php echo $cat_filter == $c['id'] ? '700' : '400'; ?>;padding:6px 10px;border-radius:6px;background:<?php echo $cat_filter == $c['id'] ? '#fff5f5' : 'transparent'; ?>;"><?php echo $c['name']; ?></a>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <a href="shop.php" class="cat-sidebar-card<?php echo !$cat_filter ? ' active' : ''; ?>">
+            <div class="cat-sidebar-icon"><i class="bi bi-grid-fill"></i></div>
+            <span>All Products</span>
+          </a>
+          <?php if ($cats): while ($c = mysqli_fetch_assoc($cats)):
+            $cimg_side = $c['image'] && file_exists($c['image']) ? $c['image'] : '';
+          ?>
+            <a href="shop.php?category=<?php echo $c['id']; ?>" class="cat-sidebar-card<?php echo $cat_filter == $c['id'] ? ' active' : ''; ?>">
+              <?php if ($cimg_side): ?>
+                <div class="cat-sidebar-img"><img src="<?php echo $cimg_side; ?>" alt="<?php echo $c['name']; ?>"></div>
+              <?php else: ?>
+                <div class="cat-sidebar-icon"><i class="bi bi-tag"></i></div>
+              <?php endif; ?>
+              <span><?php echo $c['name']; ?></span>
+            </a>
           <?php endwhile; endif; ?>
         </div>
       </div>

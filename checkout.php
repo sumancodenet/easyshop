@@ -63,7 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
   // Save as new address?
   if ($user && !empty($_POST['save_address']) && !empty($address)) {
-    mysqli_query($conn, "INSERT INTO addresses (user_id, label, address, is_default) VALUES ({$user['id']}, 'Other', '$address', 0)");
+    $pincode = preg_match('/^\d{6}$/', $_POST['pincode'] ?? '') ? $_POST['pincode'] : '';
+    mysqli_query($conn, "INSERT INTO addresses (user_id, label, address, pincode, is_default) VALUES ({$user['id']}, 'Other', '$address', '$pincode', 0)");
   }
 
   $payment = mysqli_real_escape_string($conn, $_POST['payment']);
@@ -143,22 +144,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
               <!-- Manual Address Input -->
               <div style="margin-bottom:12px;">
                 <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Delivery Address</label>
-                <textarea name="address" class="form-control" rows="3" required><?php echo $user['address'] ?? ''; ?></textarea>
-                <?php if ($user): ?>
-                  <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
-                    <input type="checkbox" name="save_address" id="save_address" style="accent-color:#8B0000;">
-                    <label for="save_address" style="font-size:12px;color:#555;cursor:pointer;">Save this address for future</label>
-                  </div>
-                <?php endif; ?>
+                <textarea name="address" class="form-control" rows="3" required placeholder="Street, area, city..."><?php echo $user['address'] ?? ''; ?></textarea>
               </div>
+              <div style="margin-bottom:12px;">
+                <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">PIN Code</label>
+                <input type="text" name="pincode" class="form-control" maxlength="6" placeholder="6-digit PIN code" pattern="\d{6}" required style="width:180px;font-size:13px;">
+              </div>
+              <?php if ($user): ?>
+                <div style="margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+                  <input type="checkbox" name="save_address" id="save_address" style="accent-color:#8B0000;">
+                  <label for="save_address" style="font-size:12px;color:#555;cursor:pointer;">Save this address for future</label>
+                </div>
+              <?php endif; ?>
             <?php endif; ?>
 
             <!-- New address input (shown when user clicks Add New) -->
             <div id="newAddrInput" style="display:none;margin-bottom:12px;">
               <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">New Address</label>
-              <textarea name="address" class="form-control" rows="3" placeholder="Enter your delivery address..."></textarea>
+              <textarea name="address" class="form-control" rows="3" placeholder="Street, area, city..."></textarea>
+              <div style="margin-top:8px;">
+                <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">PIN Code</label>
+                <input type="text" name="pincode" class="form-control" maxlength="6" placeholder="6-digit PIN code" pattern="\d{6}" required style="width:180px;font-size:13px;">
+              </div>
               <?php if ($user): ?>
-                <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+                <div style="margin-top:8px;display:flex;align-items:center;gap:6px;">
                   <input type="checkbox" name="save_address" id="save_address_new" style="accent-color:#8B0000;">
                   <label for="save_address_new" style="font-size:12px;color:#555;cursor:pointer;">Save this address for future</label>
                 </div>

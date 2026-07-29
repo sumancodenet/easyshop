@@ -46,6 +46,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+function toggleSearch() {
+  var el = document.getElementById('searchOverlay');
+  var showing = el.classList.toggle('show');
+  if (showing) setTimeout(function(){ el.querySelector('.search-overlay-input').focus(); }, 100);
+}
 function showToast(type, title, message, duration) {
   duration = duration || 3500;
   var container = document.getElementById('toastContainer');

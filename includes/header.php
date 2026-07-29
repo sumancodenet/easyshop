@@ -13,23 +13,33 @@
 <header class="top-header">
   <div class="container">
     <div class="row align-items-center gx-2" style="min-height:56px;">
-      <div class="col-auto">
+      <div class="col text-start d-lg-none">
+        <button class="search-btn-mobile" onclick="toggleSearch()" aria-label="Search">
+          <i class="bi bi-search"></i>
+        </button>
+      </div>
+      <div class="col text-center">
         <a href="index.php" class="top-brand">Easy<span>Shop</span></a>
       </div>
-      <div class="col">
-        <div class="top-search">
-          <form action="shop.php" method="GET" class="d-flex">
-            <input type="text" name="search" placeholder="Search for products..." autocomplete="off">
-            <button type="submit"><i class="bi bi-search"></i></button>
-          </form>
-        </div>
-      </div>
-      <div class="col-auto">
+      <div class="col text-end d-flex align-items-center justify-content-end gap-1">
+        <button class="search-btn-desktop" onclick="toggleSearch()" aria-label="Search">
+          <i class="bi bi-search"></i>
+        </button>
         <a href="wishlist.php" class="top-icon-link">
           <i class="bi bi-heart"></i>
           <span>Wishlist</span>
         </a>
       </div>
+    </div>
+  </div>
+  <!-- Search Bar (hidden by default) -->
+  <div class="search-overlay" id="searchOverlay">
+    <div class="container">
+      <form action="shop.php" method="GET" class="search-overlay-form">
+        <i class="bi bi-search search-overlay-icon"></i>
+        <input type="text" name="search" class="search-overlay-input" placeholder="Search for products..." autocomplete="off" autofocus>
+        <button type="button" class="search-overlay-close" onclick="toggleSearch()"><i class="bi bi-x-lg"></i></button>
+      </form>
     </div>
   </div>
 </header>
