@@ -1,4 +1,5 @@
 <?php require_once 'includes/config.php'; include 'includes/header.php';
+$page_skel = 'none';
 
 if (!isset($_SESSION['user'])) {
   header('Location: login.php');
@@ -69,6 +70,7 @@ $addresses = $addr_q ? $addr_q : false;
 $orders_q = mysqli_query($conn, "SELECT * FROM orders WHERE user_id={$user['id']} ORDER BY created_at DESC LIMIT 10");
 $orders = $orders_q ? $orders_q : false;
 ?>
+<!-- PAGE WRAPPER -->
 <div class="container py-3 py-md-5">
   <h4 style="font-weight:800;margin-bottom:24px;">My Account</h4>
 
@@ -79,6 +81,36 @@ $orders = $orders_q ? $orders_q : false;
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;margin-bottom:16px;color:#16a34a;font-size:13px;font-weight:500;"><?php echo $success; ?></div>
   <?php endif; ?>
 
+  <!-- SKELETON LOADER -->
+  <div id="acSkel">
+    <div class="row g-4 g-md-5">
+      <div class="col-md-4 col-lg-3">
+        <div class="skel-card" style="background:#fff;border:1px solid #eee;">
+          <div class="skel-hdr" style="background:linear-gradient(135deg,#e0d0d0,#d0b0b0);border-radius:0;"></div>
+          <div class="skel-body">
+            <div class="skel skel-line" style="width:50%;margin:0 auto 10px;"></div>
+            <div class="skel skel-line-sm" style="margin:0 auto 10px;"></div>
+            <div class="skel skel-line" style="margin-top:20px;"></div>
+            <div class="skel skel-line"></div>
+            <div class="skel skel-line"></div>
+            <div class="skel skel-line"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-8 col-lg-9">
+        <div class="skel-card" style="background:#fff;border:1px solid #eee;padding:28px;">
+          <div class="skel skel-line" style="width:40%;margin-bottom:24px;"></div>
+          <div class="skel skel-line"></div>
+          <div class="skel skel-line"></div>
+          <div class="skel skel-line"></div>
+          <div class="skel skel-btn"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTUAL CONTENT (hidden until load) -->
+  <div id="acContent" style="display:none;">
   <div class="row g-4 g-md-5">
     <div class="col-md-4 col-lg-3">
       <div class="ac-sidebar">
@@ -219,6 +251,7 @@ $orders = $orders_q ? $orders_q : false;
       </div>
     </div>
   </div>
+  </div>
 </div>
 
 <!-- Edit Address Modal -->
@@ -256,10 +289,30 @@ $orders = $orders_q ? $orders_q : false;
 </div>
 
 <script>
+// Skeleton loader
+window.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    var skel = document.getElementById('acSkel');
+    var content = document.getElementById('acContent');
+    if (skel && content) {
+      skel.style.transition = 'opacity 0.3s ease';
+      skel.style.opacity = '0';
+      setTimeout(function() {
+        skel.style.display = 'none';
+        content.style.display = 'block';
+        content.style.animation = 'fadeIn 0.4s ease';
+      }, 300);
+    }
+  }, 400);
+});
+
 function switchTab(e, tab) {
   e.preventDefault();
   document.querySelectorAll('.ac-content').forEach(function(el) { el.style.display = 'none'; });
   document.getElementById('tab-' + tab).style.display = 'block';
+  document.getElementById('tab-' + tab).style.animation = 'none';
+  void document.getElementById('tab-' + tab).offsetWidth;
+  document.getElementById('tab-' + tab).style.animation = 'fadeIn 0.3s ease';
   document.querySelectorAll('.ac-nav-item').forEach(function(el) { el.classList.remove('active'); });
   e.currentTarget.classList.add('active');
   var url = new URL(window.location);

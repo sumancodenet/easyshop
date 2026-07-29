@@ -442,6 +442,24 @@ img { max-width: 100%; height: auto; }
 .ac-label-badge { display:inline-block;padding:2px 10px;background:#fff5f5;color:var(--red);border-radius:50px;font-size:10px;font-weight:600; }
 .ac-default-badge { display:inline-block;padding:2px 8px;background:var(--red);color:#fff;border-radius:50px;font-size:10px;font-weight:600; }
 
+/* SKELETON LOADER */
+.skel { background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);background-size:200% 100%;animation:skel-shine 1.2s ease-in-out infinite;border-radius:6px; }
+@keyframes skel-shine { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.skel-card { border-radius:12px;overflow:hidden; }
+.skel-card .skel-hdr { height:100px; }
+.skel-card .skel-body { padding:20px; }
+.skel-card .skel-line { height:14px;margin-bottom:10px; }
+.skel-card .skel-line-sm { height:10px;width:60%;margin-bottom:10px; }
+.skel-card .skel-line-xs { height:10px;width:40%;margin-bottom:10px; }
+.skel-card .skel-btn { height:36px;width:100%;border-radius:8px;margin-top:8px; }
+.skel-addr { height:120px;border-radius:10px; }
+
+/* SMOOTH TRANSITIONS */
+html { scroll-behavior:smooth; }
+.ac-content { animation:fadeIn 0.3s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.ac-sidebar, .ac-card, .ac-addr-card, .ac-order-item, .ac-nav-item { transition:all 0.25s ease; }
+
 /* PRODUCT CARD */
 .product-card {
   text-decoration: none; display: block;
