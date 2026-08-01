@@ -3,6 +3,20 @@
 $pf_p = mysqli_fetch_assoc(mysqli_query($conn, "SELECT `value` FROM settings WHERE `key`='platform_fee_percent'"))['value'] ?? 5;
 $pf_f = mysqli_fetch_assoc(mysqli_query($conn, "SELECT `value` FROM settings WHERE `key`='platform_fee_fixed'"))['value'] ?? 0;
 
+// Normalize legacy cart (same as cart.php)
+if (!empty($_SESSION['cart'])) {
+  $normalized = [];
+  foreach ($_SESSION['cart'] as $key => $item) {
+    if (is_numeric($key) && isset($item['qty']) && !isset($item['product_id'])) {
+      $new_key = $key . '_0';
+      $normalized[$new_key] = ['product_id' => (int)$key, 'size_id' => 0, 'qty' => $item['qty']];
+    } else {
+      $normalized[$key] = $item;
+    }
+  }
+  $_SESSION['cart'] = $normalized;
+}
+
 $cart_items = $_SESSION['cart'] ?? [];
 $products = [];
 $total = 0;
@@ -11,20 +25,56 @@ $is_buy_now = false;
 if (isset($_GET['buy_now'])) {
   $is_buy_now = true;
   $pid = (int)$_GET['buy_now'];
+  $size_id = (int)($_GET['size_id'] ?? 0);
   $q = mysqli_query($conn, "SELECT * FROM products WHERE id=$pid AND status=1");
   if ($q && $row = mysqli_fetch_assoc($q)) {
     $row['cart_qty'] = 1;
+    $row['cart_size_id'] = $size_id;
     $products[] = $row;
     $total = $row['price'];
   }
 } elseif (count($cart_items) > 0) {
-  $ids = implode(',', array_map('intval', array_keys($cart_items)));
-  $q = mysqli_query($conn, "SELECT * FROM products WHERE id IN ($ids) AND status=1");
-  if ($q) {
-    while ($row = mysqli_fetch_assoc($q)) {
-      $row['cart_qty'] = $cart_items[$row['id']]['qty'] ?? 1;
-      $products[] = $row;
-      $total += $row['price'] * $row['cart_qty'];
+  $ids = [];
+  foreach ($cart_items as $key => $item) {
+    $ids[] = (int)$item['product_id'];
+  }
+  $ids = array_unique($ids);
+  if (count($ids) > 0) {
+    $ids_str = implode(',', $ids);
+    $q = mysqli_query($conn, "SELECT * FROM products WHERE id IN ($ids_str) AND status=1");
+    if ($q) {
+      $product_map = [];
+      while ($row = mysqli_fetch_assoc($q)) {
+        $product_map[$row['id']] = $row;
+      }
+
+      // Load size names
+      $size_ids = [];
+      foreach ($cart_items as $item) {
+        if ($item['size_id']) $size_ids[] = (int)$item['size_id'];
+      }
+      $size_names = [];
+      if (!empty($size_ids)) {
+        $size_ids_str = implode(',', array_unique($size_ids));
+        $sz_q = mysqli_query($conn, "SELECT * FROM product_sizes WHERE id IN ($size_ids_str)");
+        if ($sz_q) {
+          while ($sz = mysqli_fetch_assoc($sz_q)) {
+            $size_names[$sz['id']] = $sz['size_name'];
+          }
+        }
+      }
+
+      foreach ($cart_items as $key => $item) {
+        $pid = (int)$item['product_id'];
+        if (isset($product_map[$pid])) {
+          $p = $product_map[$pid];
+          $p['cart_qty'] = $item['qty'];
+          $p['cart_size_id'] = $item['size_id'];
+          $p['cart_size_name'] = $item['size_id'] ? ($size_names[$item['size_id']] ?? '') : '';
+          $products[] = $p;
+          $total += $p['price'] * $p['cart_qty'];
+        }
+      }
     }
   }
 } else {
@@ -75,7 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   if (mysqli_query($conn, $q)) {
     $oid = mysqli_insert_id($conn);
     foreach ($products as $p) {
-      mysqli_query($conn, "INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ($oid, {$p['id']}, {$p['cart_qty']}, {$p['price']})");
+      $size_id_sql = $p['cart_size_id'] ? (int)$p['cart_size_id'] : 'NULL';
+      mysqli_query($conn, "INSERT INTO order_items (order_id, product_id, size_id, quantity, price) VALUES ($oid, {$p['id']}, $size_id_sql, {$p['cart_qty']}, {$p['price']})");
       mysqli_query($conn, "UPDATE products SET stock = stock - {$p['cart_qty']} WHERE id={$p['id']}");
     }
     unset($_SESSION['cart']);
@@ -203,6 +254,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
               </div>
               <div style="flex:1;font-size:12px;">
                 <div style="font-weight:600;"><?php echo $p['name']; ?> × <?php echo $p['cart_qty']; ?></div>
+                <?php if (!empty($p['cart_size_name'])): ?>
+                  <div style="color:#999;">Size: <?php echo $p['cart_size_name']; ?></div>
+                <?php endif; ?>
                 <div style="color:#999;">₹<?php echo number_format($p['price'] * $p['cart_qty']); ?></div>
               </div>
             </div>

@@ -9,6 +9,9 @@ $discount = $p['old_price'] > 0 ? round((1 - $p['price']/$p['old_price'])*100) :
 $colors_q = mysqli_query($conn, "SELECT * FROM product_colors WHERE product_id=$id ORDER BY id");
 $colors = $colors_q ? mysqli_fetch_all($colors_q, MYSQLI_ASSOC) : [];
 
+$sizes_q = mysqli_query($conn, "SELECT * FROM product_sizes WHERE product_id=$id ORDER BY id");
+$sizes = $sizes_q ? mysqli_fetch_all($sizes_q, MYSQLI_ASSOC) : [];
+
 $imgs_q = mysqli_query($conn, "SELECT * FROM product_images WHERE product_id=$id ORDER BY color_id, id");
 $all_imgs = [];
 $color_imgs = [];
@@ -116,6 +119,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_review']) && $u
         </div>
       <?php endif; ?>
 
+      <?php if (count($sizes) > 0): ?>
+        <div style="margin-bottom:16px;">
+          <p style="font-size:13px;font-weight:600;color:#555;margin-bottom:8px;">Size: <span id="selectedSize" style="color:var(--red);"><?php echo $sizes[0]['size_name']; ?></span></p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <?php foreach ($sizes as $sz): ?>
+              <button type="button" class="size-swatch" data-size-id="<?php echo $sz['id']; ?>" data-name="<?php echo $sz['size_name']; ?>" style="min-width:44px;height:36px;padding:0 14px;border-radius:8px;background:#fff;border:2px solid #ddd;cursor:pointer;outline:none;transition:0.2s;font-size:13px;font-weight:600;<?php echo $sz === $sizes[0] ? 'border-color:var(--red);color:var(--red);background:#fff5f5;' : 'color:#555;'; ?>" onclick="selectSize(this)"><?php echo $sz['size_name']; ?></button>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      <?php endif; ?>
+
       <?php if ($p['stock'] > 0): ?>
         <p style="font-size:13px;color:#059669;margin-bottom:16px;"><i class="bi bi-check-circle"></i> In Stock (<?php echo $p['stock']; ?> available)</p>
       <?php else: ?>
@@ -142,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_review']) && $u
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button onclick="addToCart(<?php echo $p['id']; ?>)" class="btn-red" style="padding:12px 36px;font-size:15px;"><i class="bi bi-bag"></i> Add to Cart</button>
-        <a href="checkout.php?buy_now=<?php echo $p['id']; ?>" class="btn-outline-red" style="padding:12px 36px;font-size:15px;text-decoration:none;"><i class="bi bi-lightning"></i> Buy Now</a>
+        <a href="javascript:void(0)" onclick="buyNow(<?php echo $p['id']; ?>)" class="btn-outline-red" style="padding:12px 36px;font-size:15px;text-decoration:none;"><i class="bi bi-lightning"></i> Buy Now</a>
       </div>
 
       <?php if ($p['description']): ?>
@@ -315,6 +329,17 @@ function qty(d) {
   el.textContent = v;
 }
 
+var selectedSizeId = <?php echo count($sizes) > 0 ? $sizes[0]['id'] : 0; ?>;
+
+function selectSize(el) {
+  document.querySelectorAll('.size-swatch').forEach(function(s) { s.style.borderColor = '#ddd'; s.style.color = '#555'; s.style.background = '#fff'; });
+  el.style.borderColor = 'var(--red)';
+  el.style.color = 'var(--red)';
+  el.style.background = '#fff5f5';
+  document.getElementById('selectedSize').textContent = el.getAttribute('data-name');
+  selectedSizeId = parseInt(el.getAttribute('data-size-id'));
+}
+
 function addToCart(id) {
   var qty = document.getElementById('qty').textContent;
   var x = new XMLHttpRequest();
@@ -328,7 +353,11 @@ function addToCart(id) {
       showToast('success', 'Added to Cart!', '');
     }
   };
-  x.send('id=' + id + '&qty=' + qty);
+  x.send('id=' + id + '&size_id=' + selectedSizeId + '&qty=' + qty);
+}
+
+function buyNow(id) {
+  window.location.href = 'checkout.php?buy_now=' + id + '&size_id=' + selectedSizeId;
 }
 
 function toggleWishlist(id, btn) {

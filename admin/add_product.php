@@ -32,6 +32,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   if (mysqli_query($conn, $q)) {
     $pid = mysqli_insert_id($conn);
 
+    // Save sizes
+    if (!empty($_POST['size_name'])) {
+      foreach ($_POST['size_name'] as $sn) {
+        $sn = mysqli_real_escape_string($conn, trim($sn));
+        if ($sn === '') continue;
+        mysqli_query($conn, "INSERT INTO product_sizes (product_id, size_name) VALUES ($pid, '$sn')");
+      }
+    }
+
     if (!empty($_POST['color_name'])) {
       $ts = time();
       foreach ($_POST['color_name'] as $i => $cn) {
@@ -145,6 +154,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
           </div>
         </div>
 
+        <!-- SIZES -->
+        <hr style="border-color:var(--border-color);margin:20px 0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <label class="form-label" style="margin:0;font-size:14px;font-weight:700;">Sizes <small style="font-weight:400;color:var(--text-muted);">(e.g. S, M, L, XL, XXL)</small></label>
+          <button type="button" class="btn-outline-secondary btn-sm" onclick="addSize()"><i class="bi bi-plus"></i> Add Size</button>
+        </div>
+        <div id="sizesWrap">
+          <div class="size-row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+            <input type="text" name="size_name[]" class="form-control" placeholder="Size (e.g. M)" style="max-width:200px;font-size:13px;">
+            <button type="button" class="btn-outline-secondary btn-sm" style="padding:5px 10px;color:#dc2626;border-color:#fecaca;flex-shrink:0;" onclick="this.closest('.size-row').remove()"><i class="bi bi-x"></i></button>
+          </div>
+        </div>
+
         <hr style="border-color:var(--border-color);margin:20px 0;">
         <div style="display:flex;gap:10px;">
           <button type="submit" class="btn-red"><i class="bi bi-check-lg"></i> Save Product</button>
@@ -174,6 +196,17 @@ function addColor() {
     '</div>';
   w.appendChild(d);
   colorIndex++;
+}
+
+function addSize() {
+  var w = document.getElementById('sizesWrap');
+  var d = document.createElement('div');
+  d.className = 'size-row';
+  d.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;';
+  d.innerHTML =
+    '<input type="text" name="size_name[]" class="form-control" placeholder="Size (e.g. L)" style="max-width:200px;font-size:13px;">' +
+    '<button type="button" class="btn-outline-secondary btn-sm" style="padding:5px 10px;color:#dc2626;border-color:#fecaca;flex-shrink:0;" onclick="this.closest(\'.size-row\').remove()"><i class="bi bi-x"></i></button>';
+  w.appendChild(d);
 }
 </script>
 

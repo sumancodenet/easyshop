@@ -90,12 +90,12 @@ $orders = $orders_q ? $orders_q : false;
                     </form>
                     <h6 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:8px;">Order Items</h6>
                     <?php
-                    $items_q = mysqli_query($conn, "SELECT oi.*, p.name as pname FROM order_items oi LEFT JOIN products p ON oi.product_id=p.id WHERE oi.order_id=" . $o['id']);
+                    $items_q = mysqli_query($conn, "SELECT oi.*, p.name as pname, s.size_name FROM order_items oi LEFT JOIN products p ON oi.product_id=p.id LEFT JOIN product_sizes s ON oi.size_id=s.id WHERE oi.order_id=" . $o['id']);
                     if ($items_q):
                       while ($item = mysqli_fetch_assoc($items_q)):
                     ?>
                       <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);font-size:13px;">
-                        <span><?php echo $item['pname']; ?> × <?php echo $item['quantity']; ?></span>
+                        <span><?php echo $item['pname']; ?> × <?php echo $item['quantity']; ?> <?php echo $item['size_name'] ? '[Size: '.$item['size_name'].']' : ''; ?></span>
                         <span><strong>₹<?php echo number_format($item['price'] * $item['quantity']); ?></strong></span>
                       </div>
                     <?php endwhile; endif; ?>

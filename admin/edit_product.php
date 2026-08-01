@@ -13,6 +13,9 @@ $categories = $categories_q ? $categories_q : false;
 $colors_q = mysqli_query($conn, "SELECT * FROM product_colors WHERE product_id=$id ORDER BY id");
 $existing_colors = $colors_q ? mysqli_fetch_all($colors_q, MYSQLI_ASSOC) : [];
 
+$sizes_q = mysqli_query($conn, "SELECT * FROM product_sizes WHERE product_id=$id ORDER BY id");
+$existing_sizes = $sizes_q ? mysqli_fetch_all($sizes_q, MYSQLI_ASSOC) : [];
+
 // Load images per color
 $images_q = mysqli_query($conn, "SELECT * FROM product_images WHERE product_id=$id ORDER BY color_id, id");
 $existing_images = [];
@@ -63,6 +66,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   if (mysqli_query($conn, $q)) {
     $ts = time();
     $submitted_ids = [];
+    $submitted_size_ids = [];
+
+    // Save sizes
+    if (!empty($_POST['size_name'])) {
+      foreach ($_POST['size_name'] as $i => $sn) {
+        $sn = mysqli_real_escape_string($conn, trim($sn));
+        if ($sn === '') continue;
+        $sid = !empty($_POST['size_id'][$i]) ? (int)$_POST['size_id'][$i] : 0;
+        if ($sid) {
+          mysqli_query($conn, "UPDATE product_sizes SET size_name='$sn' WHERE id=$sid");
+          $submitted_size_ids[] = $sid;
+        } else {
+          mysqli_query($conn, "INSERT INTO product_sizes (product_id, size_name) VALUES ($id, '$sn')");
+          $submitted_size_ids[] = mysqli_insert_id($conn);
+        }
+      }
+    }
+
+    // Delete sizes that were removed
+    if (!empty($submitted_size_ids)) {
+      $keep_sizes = implode(',', $submitted_size_ids);
+      mysqli_query($conn, "DELETE FROM product_sizes WHERE product_id=$id AND id NOT IN ($keep_sizes)");
+    } else {
+      mysqli_query($conn, "DELETE FROM product_sizes WHERE product_id=$id");
+    }
 
     if (!empty($_POST['color_name'])) {
       foreach ($_POST['color_name'] as $i => $cn) {
@@ -241,6 +269,22 @@ $success = $_GET['success'] ?? '';
           <?php endforeach; ?>
         </div>
 
+        <!-- SIZES -->
+        <hr style="border-color:var(--border-color);margin:20px 0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <label class="form-label" style="margin:0;font-size:14px;font-weight:700;">Sizes <small style="font-weight:400;color:var(--text-muted);">(e.g. S, M, L, XL, XXL)</small></label>
+          <button type="button" class="btn-outline-secondary btn-sm" onclick="addSize()"><i class="bi bi-plus"></i> Add Size</button>
+        </div>
+        <div id="sizesWrap">
+          <?php foreach ($existing_sizes as $es): ?>
+            <div class="size-row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <input type="hidden" name="size_id[]" value="<?php echo $es['id']; ?>">
+              <input type="text" name="size_name[]" class="form-control" value="<?php echo $es['size_name']; ?>" placeholder="Size (e.g. M)" style="max-width:200px;font-size:13px;">
+              <button type="button" class="btn-outline-secondary btn-sm" style="padding:5px 10px;color:#dc2626;border-color:#fecaca;flex-shrink:0;" onclick="this.closest('.size-row').remove()"><i class="bi bi-x"></i></button>
+            </div>
+          <?php endforeach; ?>
+        </div>
+
         <hr style="border-color:var(--border-color);margin:20px 0;">
         <div style="display:flex;gap:10px;">
           <button type="submit" class="btn-red"><i class="bi bi-check-lg"></i> Update Product</button>
@@ -271,6 +315,18 @@ function addColor() {
     '</div>';
   w.appendChild(d);
   colorIndex++;
+}
+
+function addSize() {
+  var w = document.getElementById('sizesWrap');
+  var d = document.createElement('div');
+  d.className = 'size-row';
+  d.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;';
+  d.innerHTML =
+    '<input type="hidden" name="size_id[]" value="">' +
+    '<input type="text" name="size_name[]" class="form-control" placeholder="Size (e.g. L)" style="max-width:200px;font-size:13px;">' +
+    '<button type="button" class="btn-outline-secondary btn-sm" style="padding:5px 10px;color:#dc2626;border-color:#fecaca;flex-shrink:0;" onclick="this.closest(\'.size-row\').remove()"><i class="bi bi-x"></i></button>';
+  w.appendChild(d);
 }
 </script>
 

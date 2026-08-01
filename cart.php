@@ -1,18 +1,34 @@
 <?php require_once 'includes/config.php'; include 'includes/header.php';
 
+// Normalize legacy cart (old format: $pid => ['qty'=>N])
+if (!empty($_SESSION['cart'])) {
+  $normalized = [];
+  foreach ($_SESSION['cart'] as $key => $item) {
+    if (is_numeric($key) && isset($item['qty']) && !isset($item['product_id'])) {
+      $new_key = $key . '_0';
+      $normalized[$new_key] = ['product_id' => (int)$key, 'size_id' => 0, 'qty' => $item['qty']];
+    } else {
+      $normalized[$key] = $item;
+    }
+  }
+  $_SESSION['cart'] = $normalized;
+}
+
 // Cart actions
 $action = $_GET['action'] ?? '';
-$pid = (int)($_GET['id'] ?? 0);
+$cart_key = $_GET['key'] ?? '';
 
-if ($action == 'remove' && $pid) {
-  unset($_SESSION['cart'][$pid]);
+if ($action == 'remove' && $cart_key) {
+  unset($_SESSION['cart'][$cart_key]);
   header('Location: cart.php');
   exit;
 }
 
-if ($action == 'update' && $pid) {
+if ($action == 'update' && $cart_key) {
   $qty = max(1, (int)($_GET['qty'] ?? 1));
-  $_SESSION['cart'][$pid]['qty'] = $qty;
+  if (isset($_SESSION['cart'][$cart_key])) {
+    $_SESSION['cart'][$cart_key]['qty'] = $qty;
+  }
   header('Location: cart.php');
   exit;
 }
@@ -28,13 +44,48 @@ $products = [];
 $total = 0;
 
 if (count($cart_items) > 0) {
-  $ids = implode(',', array_map('intval', array_keys($cart_items)));
-  $q = mysqli_query($conn, "SELECT * FROM products WHERE id IN ($ids) AND status=1");
-  if ($q) {
-    while ($row = mysqli_fetch_assoc($q)) {
-      $row['cart_qty'] = $cart_items[$row['id']]['qty'] ?? 1;
-      $products[] = $row;
-      $total += $row['price'] * $row['cart_qty'];
+  $ids = [];
+  foreach ($cart_items as $key => $item) {
+    $ids[] = (int)$item['product_id'];
+  }
+  $ids = array_unique($ids);
+  if (count($ids) > 0) {
+    $ids_str = implode(',', $ids);
+    $q = mysqli_query($conn, "SELECT * FROM products WHERE id IN ($ids_str) AND status=1");
+    if ($q) {
+      $product_map = [];
+      while ($row = mysqli_fetch_assoc($q)) {
+        $product_map[$row['id']] = $row;
+      }
+
+      // Load size names
+      $size_ids = [];
+      foreach ($cart_items as $item) {
+        if ($item['size_id']) $size_ids[] = (int)$item['size_id'];
+      }
+      $size_names = [];
+      if (!empty($size_ids)) {
+        $size_ids_str = implode(',', array_unique($size_ids));
+        $sz_q = mysqli_query($conn, "SELECT * FROM product_sizes WHERE id IN ($size_ids_str)");
+        if ($sz_q) {
+          while ($sz = mysqli_fetch_assoc($sz_q)) {
+            $size_names[$sz['id']] = $sz['size_name'];
+          }
+        }
+      }
+
+      foreach ($cart_items as $key => $item) {
+        $pid = (int)$item['product_id'];
+        if (isset($product_map[$pid])) {
+          $p = $product_map[$pid];
+          $p['cart_qty'] = $item['qty'];
+          $p['cart_key'] = $key;
+          $p['cart_size_id'] = $item['size_id'];
+          $p['cart_size_name'] = $item['size_id'] ? ($size_names[$item['size_id']] ?? '') : '';
+          $products[] = $p;
+          $total += $p['price'] * $p['cart_qty'];
+        }
+      }
     }
   }
 }
@@ -63,18 +114,21 @@ if (count($cart_items) > 0) {
             </div>
             <div style="flex:1;min-width:0;">
               <a href="product-detail.php?id=<?php echo $p['id']; ?>" style="text-decoration:none;color:var(--dark);font-weight:600;font-size:14px;"><?php echo $p['name']; ?></a>
+              <?php if ($p['cart_size_name']): ?>
+                <div style="font-size:12px;color:#888;margin-top:2px;">Size: <strong><?php echo $p['cart_size_name']; ?></strong></div>
+              <?php endif; ?>
               <div style="font-size:13px;color:var(--red);font-weight:700;margin-top:4px;">₹<?php echo number_format($p['price']); ?>
                 <?php if ($p['old_price'] > 0): ?><span style="font-size:11px;color:#999;text-decoration:line-through;font-weight:400;">₹<?php echo number_format($p['old_price']); ?></span><?php endif; ?>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
               <div style="display:flex;align-items:center;border:1.5px solid #ddd;border-radius:50px;overflow:hidden;">
-                <a href="cart.php?action=update&id=<?php echo $p['id']; ?>&qty=<?php echo max(1, $p['cart_qty'] - 1); ?>" style="border:none;background:none;padding:6px 10px;text-decoration:none;color:#333;font-size:14px;font-weight:600;">−</a>
+                <a href="cart.php?action=update&key=<?php echo $p['cart_key']; ?>&qty=<?php echo max(1, $p['cart_qty'] - 1); ?>" style="border:none;background:none;padding:6px 10px;text-decoration:none;color:#333;font-size:14px;font-weight:600;">−</a>
                 <span style="padding:6px 10px;font-size:14px;font-weight:600;min-width:30px;text-align:center;"><?php echo $p['cart_qty']; ?></span>
-                <a href="cart.php?action=update&id=<?php echo $p['id']; ?>&qty=<?php echo $p['cart_qty'] + 1; ?>" style="border:none;background:none;padding:6px 10px;text-decoration:none;color:#333;font-size:14px;font-weight:600;">+</a>
+                <a href="cart.php?action=update&key=<?php echo $p['cart_key']; ?>&qty=<?php echo $p['cart_qty'] + 1; ?>" style="border:none;background:none;padding:6px 10px;text-decoration:none;color:#333;font-size:14px;font-weight:600;">+</a>
               </div>
               <span style="font-size:15px;font-weight:700;color:var(--dark);min-width:70px;text-align:right;">₹<?php echo number_format($p['price'] * $p['cart_qty']); ?></span>
-              <a href="cart.php?action=remove&id=<?php echo $p['id']; ?>" style="color:#ccc;text-decoration:none;font-size:18px;padding:4px;" onclick="return confirm('Remove this item?')">&times;</a>
+              <a href="cart.php?action=remove&key=<?php echo $p['cart_key']; ?>" style="color:#ccc;text-decoration:none;font-size:18px;padding:4px;" onclick="return confirm('Remove this item?')">&times;</a>
             </div>
           </div>
         <?php endforeach; ?>

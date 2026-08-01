@@ -16,7 +16,7 @@ $orders = $q ? $q : false;
   <?php if ($orders && mysqli_num_rows($orders) > 0): ?>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <?php while ($o = mysqli_fetch_assoc($orders)):
-        $items_q = mysqli_query($conn, "SELECT oi.*, p.name, p.image FROM order_items oi LEFT JOIN products p ON oi.product_id=p.id WHERE oi.order_id={$o['id']}");
+        $items_q = mysqli_query($conn, "SELECT oi.*, p.name, p.image, s.size_name FROM order_items oi LEFT JOIN products p ON oi.product_id=p.id LEFT JOIN product_sizes s ON oi.size_id=s.id WHERE oi.order_id={$o['id']}");
         $items = $items_q ? $items_q : false;
       ?>
         <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:16px;">
@@ -40,6 +40,7 @@ $orders = $q ? $q : false;
               </div>
               <div style="flex:1;font-size:13px;">
                 <div style="font-weight:600;"><?php echo $item['name']; ?> × <?php echo $item['quantity']; ?></div>
+                <?php if ($item['size_name']): ?><div style="color:#888;font-size:12px;">Size: <?php echo $item['size_name']; ?></div><?php endif; ?>
                 <div style="color:#999;">₹<?php echo number_format($item['price'] * $item['quantity']); ?></div>
               </div>
             </div>

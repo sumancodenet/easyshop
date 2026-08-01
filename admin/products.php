@@ -27,6 +27,14 @@ if ($cols_q) {
     $all_colors[$col['product_id']][] = $col;
   }
 }
+
+$all_sizes = [];
+$sizes_q = mysqli_query($conn, "SELECT * FROM product_sizes ORDER BY product_id, id");
+if ($sizes_q) {
+  while ($sz = mysqli_fetch_assoc($sizes_q)) {
+    $all_sizes[$sz['product_id']][] = $sz;
+  }
+}
 ?>
 <div class="table-card">
   <div class="table-header">
@@ -51,6 +59,7 @@ if ($cols_q) {
           <th>Stock</th>
           <th>Delivery</th>
           <th>Colors</th>
+          <th>Sizes</th>
           <th>Status</th>
           <th style="width:120px;">Action</th>
         </tr>
@@ -94,6 +103,17 @@ if ($cols_q) {
                 <?php endif; ?>
               </td>
               <td>
+                <?php if (!empty($all_sizes[$p['id']])): ?>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                    <?php foreach ($all_sizes[$p['id']] as $sz): ?>
+                      <span style="display:inline-block;padding:1px 8px;border-radius:4px;background:#f0f0f0;font-size:11px;font-weight:600;"><?php echo $sz['size_name']; ?></span>
+                    <?php endforeach; ?>
+                  </div>
+                <?php else: ?>
+                  <small style="color:var(--text-muted);">—</small>
+                <?php endif; ?>
+              </td>
+              <td>
                 <span class="badge-status bg-<?php echo $p['status'] ? 'success' : 'secondary'; ?>">
                   <span class="dot"></span> <?php echo $p['status'] ? 'Active' : 'Inactive'; ?>
                 </span>
@@ -107,7 +127,7 @@ if ($cols_q) {
             </tr>
           <?php endwhile; ?>
         <?php else: ?>
-          <tr><td colspan="10"><div class="empty-state"><div class="empty-icon"><i class="bi bi-box-seam"></i></div><h6>No products yet</h6><p>Add your first product to start selling.</p><a href="add_product.php" class="btn-red btn-sm"><i class="bi bi-plus-lg"></i> Add Product</a></div></td></tr>
+          <tr><td colspan="11"><div class="empty-state"><div class="empty-icon"><i class="bi bi-box-seam"></i></div><h6>No products yet</h6><p>Add your first product to start selling.</p><a href="add_product.php" class="btn-red btn-sm"><i class="bi bi-plus-lg"></i> Add Product</a></div></td></tr>
         <?php endif; ?>
       </tbody>
     </table>
