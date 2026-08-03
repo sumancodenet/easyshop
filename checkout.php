@@ -1,4 +1,11 @@
-﻿<?php require_once 'includes/config.php'; include 'includes/header.php';
+﻿<?php require_once 'includes/config.php'; require_once 'includes/easypay.php'; include 'includes/header.php';
+
+// Cancel pending online payment - returns to cart/checkout, no order is created
+if (isset($_GET['cancel_payment'])) {
+  unset($_SESSION['pending_payment']);
+  header('Location: cart.php');
+  exit;
+}
 
 $pf_p = mysqli_fetch_assoc(mysqli_query($conn, "SELECT `value` FROM settings WHERE `key`='platform_fee_percent'"))['value'] ?? 5;
 $pf_f = mysqli_fetch_assoc(mysqli_query($conn, "SELECT `value` FROM settings WHERE `key`='platform_fee_fixed'"))['value'] ?? 0;
@@ -22,10 +29,13 @@ $products = [];
 $total = 0;
 $is_buy_now = false;
 
-if (isset($_GET['buy_now'])) {
+$buy_now_id = (int)($_GET['buy_now'] ?? ($_POST['buy_now'] ?? 0));
+$buy_now_size = (int)($_GET['size_id'] ?? ($_POST['size_id'] ?? 0));
+
+if ($buy_now_id > 0) {
   $is_buy_now = true;
-  $pid = (int)$_GET['buy_now'];
-  $size_id = (int)($_GET['size_id'] ?? 0);
+  $pid = $buy_now_id;
+  $size_id = $buy_now_size;
   $q = mysqli_query($conn, "SELECT * FROM products WHERE id=$pid AND status=1");
   if ($q && $row = mysqli_fetch_assoc($q)) {
     $row['cart_qty'] = 1;
@@ -121,19 +131,86 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   $order_no = 'ORD' . strtoupper(uniqid());
   $uid = $user ? $user['id'] : 'NULL';
 
-  $q = "INSERT INTO orders (user_id, order_number, total_amount, payment_method, payment_status, name, email, phone, address) VALUES ($uid, '$order_no', $grand_total, '$payment', '$payment', '$name', '$email', '$phone', '$address')";
-  if (mysqli_query($conn, $q)) {
-    $oid = mysqli_insert_id($conn);
+  $order_created = false;
+  $oid = 0;
+  $txn_id = '';
+  $online_txn = null;
+
+  if ($payment === 'Online') {
+    // --- ONLINE PAYMENT (EasyPay gateway) ---
+    // Order is NOT created here. It is created only on payment-confirm.php
+    // AFTER the customer submits payment (UTR + proof) and verification.
+    if (!easypay_configured()) {
+      $error = 'Online payment is not configured yet. Please use Cash on Delivery for now.';
+    } else {
+      $resp = easypay_create_order([
+        'amount'        => $grand_total,
+        'orderId'       => $order_no,
+        'currency'      => 'INR',
+        'customerName'  => $_POST['name'],
+        'customerEmail' => $_POST['email'],
+        'customerPhone' => $_POST['phone'],
+        'redirectUrl'   => SITE_URL . '/payment-confirm.php?order=' . urlencode($order_no),
+        'webhookUrl'    => SITE_URL . '/callback.php',
+      ]);
+      if (!($resp['body']['success'] ?? false)) {
+        $error = 'Payment gateway error: ' . ($resp['body']['message'] ?? 'Could not create order. Please try again.');
+      } else {
+        $data = $resp['body']['data'] ?? [];
+        $txn_id = isset($data['transactionId']) ? mysqli_real_escape_string($conn, $data['transactionId']) : '';
+        // Save pending payment in session - order stored in DB only after payment
+        $pending_items = [];
+        foreach ($products as $p) {
+          $pending_items[] = [
+            'id'      => (int)$p['id'],
+            'size_id' => (int)$p['cart_size_id'],
+            'qty'     => (int)$p['cart_qty'],
+            'price'   => (float)$p['price'],
+          ];
+        }
+        $_SESSION['pending_payment'] = [
+          'order_no'    => $order_no,
+          'txn_id'      => $txn_id,
+          'grand_total' => $grand_total,
+          'items'       => $pending_items,
+          'name'        => $_POST['name'],
+          'email'       => $_POST['email'],
+          'phone'       => $_POST['phone'],
+          'address'     => $address,
+        ];
+        $online_txn = $data;
+      }
+    }
+  } else {
+    // --- CASH ON DELIVERY (existing flow, order stays pending) ---
+    $q = "INSERT INTO orders (user_id, order_number, total_amount, payment_method, payment_status, order_status, name, email, phone, address) VALUES ($uid, '$order_no', $grand_total, '$payment', '$payment', 'pending', '$name', '$email', '$phone', '$address')";
+    if (mysqli_query($conn, $q)) {
+      $oid = mysqli_insert_id($conn);
+      $order_created = true;
+    } else {
+      $error = 'Order failed: ' . mysqli_error($conn);
+    }
+  }
+
+  if ($order_created) {
     foreach ($products as $p) {
       $size_id_sql = $p['cart_size_id'] ? (int)$p['cart_size_id'] : 'NULL';
       mysqli_query($conn, "INSERT INTO order_items (order_id, product_id, size_id, quantity, price) VALUES ($oid, {$p['id']}, $size_id_sql, {$p['cart_qty']}, {$p['price']})");
       mysqli_query($conn, "UPDATE products SET stock = stock - {$p['cart_qty']} WHERE id={$p['id']}");
     }
     unset($_SESSION['cart']);
+    unset($_SESSION['pending_payment']);
     $success = $order_no;
-  } else {
-    $error = 'Order failed: ' . mysqli_error($conn);
   }
+}
+
+// After POST handling: if a pending payment exists (page refresh or payment window closed),
+// re-show the payment window so the customer can retry or cancel.
+$pending = $_SESSION['pending_payment'] ?? null;
+if ($pending && empty($online_txn)) {
+  $online_txn = ['transactionId' => $pending['txn_id']];
+  $order_no = $pending['order_no'];
+  $grand_total = $pending['grand_total'];
 }
 ?>
 <div class="container py-4" style="max-width:800px;">
@@ -148,15 +225,55 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
       <i class="bi bi-check-circle" style="font-size:60px;color:#059669;"></i>
       <h5 style="margin-top:16px;font-weight:700;">Order Placed!</h5>
       <p style="color:#666;">Order #<?php echo $success; ?></p>
-      <p style="color:#999;font-size:14px;"><?php echo $_POST['payment'] == 'COD' ? 'Pay ₹'.number_format($grand_total).' at delivery' : 'Payment successful'; ?></p>
+      <p style="color:#999;font-size:14px;">Pay ₹<?php echo number_format($grand_total); ?> at delivery</p>
       <a href="shop.php" class="btn-red" style="text-decoration:none;">Continue Shopping</a>
     </div>
+  <?php elseif (!empty($online_txn)): ?>
+    <?php
+    $pp = $_SESSION['pending_payment'] ?? null;
+    $otx = $online_txn['transactionId'] ?? ($pp['txn_id'] ?? '');
+    $ocheckout = [
+      'amount'        => (float)$grand_total,
+      'currency'      => 'INR',
+      'orderId'       => $order_no,
+      'customerName'  => $pp['name'] ?? ($_POST['name'] ?? ''),
+      'customerEmail' => $pp['email'] ?? ($_POST['email'] ?? ''),
+      'customerPhone' => $pp['phone'] ?? ($_POST['phone'] ?? ''),
+      'redirectUrl'   => SITE_URL . '/payment-confirm.php?order=' . urlencode($order_no),
+      'webhookUrl'    => SITE_URL . '/callback.php',
+    ];
+    ?>
+    <div style="text-align:center;padding:60px 20px;">
+      <div class="spinner-border" style="width:48px;height:48px;color:var(--red);" role="status"></div>
+      <h5 style="margin-top:20px;font-weight:800;">Opening Secure Payment Window...</h5>
+      <p style="color:#666;font-size:14px;max-width:440px;margin:10px auto 6px;">
+        Complete the payment (UPI / Bank Transfer) in the payment window.
+        Your order <strong>#<?php echo $order_no; ?></strong> will be confirmed
+        after the payment is submitted and verified.
+      </p>
+      <p style="font-size:13px;color:#999;">Amount: <strong style="color:var(--red);">₹<?php echo number_format($grand_total); ?></strong></p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px;">
+        <a href="checkout.php?cancel_payment=1" class="btn-outline-red" style="padding:8px 20px;font-size:13px;text-decoration:none;"><i class="bi bi-x-lg"></i> Cancel Payment</a>
+        <button type="button" class="btn-outline-secondary" style="padding:8px 20px;font-size:13px;" onclick="location.reload()"><i class="bi bi-arrow-clockwise"></i> Payment window didn't open? Reload</button>
+      </div>
+    </div>
+    <script src="<?php echo EASYPAY_SDK_URL; ?>"></script>
+    <script>
+    EasyPay.init(<?php echo json_encode(EASYPAY_API_KEY); ?>, <?php echo json_encode(EASYPAY_SECRET_KEY); ?>, {
+      baseUrl: <?php echo json_encode(EASYPAY_BASE_URL); ?>
+    });
+    EasyPay.checkout(<?php echo json_encode($ocheckout); ?>);
+    </script>
   <?php else: ?>
     <div class="row g-4">
       <div class="col-lg-7">
         <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:20px;">
           <h6 style="font-weight:700;font-size:14px;margin-bottom:14px;">Delivery Details</h6>
           <form method="POST" id="checkoutForm">
+            <?php if ($is_buy_now): ?>
+              <input type="hidden" name="buy_now" value="<?php echo (int)$pid; ?>">
+              <input type="hidden" name="size_id" value="<?php echo (int)$size_id; ?>">
+            <?php endif; ?>
             <div style="margin-bottom:12px;">
               <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Full Name</label>
               <input type="text" name="name" class="form-control" value="<?php echo $user['name'] ?? ''; ?>" required>
@@ -212,10 +329,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <!-- New address input (shown when user clicks Add New) -->
             <div id="newAddrInput" style="display:none;margin-bottom:12px;">
               <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">New Address</label>
-              <textarea name="address" class="form-control" rows="3" placeholder="Street, area, city..."></textarea>
+              <textarea name="address" class="form-control" rows="3" placeholder="Street, area, city..." disabled></textarea>
               <div style="margin-top:8px;">
                 <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">PIN Code</label>
-                <input type="text" name="pincode" class="form-control" maxlength="6" placeholder="6-digit PIN code" pattern="\d{6}" required style="width:180px;font-size:13px;">
+                <input type="text" name="pincode" class="form-control" maxlength="6" placeholder="6-digit PIN code" pattern="\d{6}" style="width:180px;font-size:13px;" disabled>
               </div>
               <?php if ($user): ?>
                 <div style="margin-top:8px;display:flex;align-items:center;gap:6px;">
@@ -239,8 +356,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                   <span style="font-size:12px;font-weight:600;">Pay Online</span>
                 </label>
               </div>
+              <?php if (!easypay_configured()): ?>
+                <p style="font-size:11px;color:#b45309;margin:8px 0 0;"><i class="bi bi-info-circle"></i> Online payment will be available once the gateway is configured.</p>
+              <?php endif; ?>
             </div>
-            <button type="submit" class="btn-red" style="width:100%;padding:12px;font-size:15px;" id="placeOrderBtn"><i class="bi bi-lock"></i> Place Order · ₹<?php echo number_format($grand_total); ?></button>
           </form>
         </div>
       </div>
@@ -275,6 +394,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <span>Total</span><span>₹<?php echo number_format($grand_total); ?></span>
           </div>
         </div>
+        <button type="submit" form="checkoutForm" class="btn-red" style="display:block;width:100%;padding:12px;font-size:15px;margin-top:12px;text-align:center;" id="placeOrderBtn"><i class="bi bi-lock"></i> Place Order · ₹<?php echo number_format($grand_total); ?></button>
       </div>
     </div>
   <?php endif; ?>
@@ -301,7 +421,10 @@ function selectAddress(el, id) {
   el.style.background = '#fff5f5';
   el.querySelector('i.bi-check-circle').style.color = '#8B0000';
   el.querySelector('input[type=radio]').checked = true;
-  document.getElementById('newAddrInput').style.display = 'none';
+  var newBox = document.getElementById('newAddrInput');
+  newBox.style.display = 'none';
+  var fields = newBox.querySelectorAll('textarea[name=address], input[name=pincode]');
+  fields.forEach(function(f) { f.required = false; f.disabled = true; });
 }
 
 function showNewAddrInput() {
@@ -311,7 +434,10 @@ function showNewAddrInput() {
     o.querySelector('i.bi-check-circle').style.color = '#ddd';
     o.querySelector('input[type=radio]').checked = false;
   });
-  document.getElementById('newAddrInput').style.display = 'block';
+  var newBox = document.getElementById('newAddrInput');
+  newBox.style.display = 'block';
+  var fields = newBox.querySelectorAll('textarea[name=address], input[name=pincode]');
+  fields.forEach(function(f) { f.required = true; f.disabled = false; });
 }
 </script>
 

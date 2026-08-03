@@ -90,7 +90,7 @@ $recent_orders = $recent_orders_q ? $recent_orders_q : false;
                   <td><strong>₹<?php echo number_format($o['total_amount']); ?></strong></td>
                   <td><?php echo $o['payment_method']; ?></td>
                   <td>
-                    <span class="badge-status bg-<?php echo $o['order_status'] == 'delivered' ? 'success' : ($o['order_status'] == 'cancelled' ? 'danger' : ($o['order_status'] == 'shipped' ? 'primary' : 'warning')); ?>">
+                    <span class="badge-status bg-<?php echo $o['order_status'] == 'delivered' ? 'success' : (($o['order_status'] == 'cancelled' || $o['order_status'] == 'rejected') ? 'danger' : (($o['order_status'] == 'shipped' || $o['order_status'] == 'initiated') ? 'primary' : 'warning')); ?>">
                       <span class="dot"></span> <?php echo ucfirst($o['order_status']); ?>
                     </span>
                   </td>

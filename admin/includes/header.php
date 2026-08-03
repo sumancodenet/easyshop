@@ -83,6 +83,13 @@ require_once dirname(__DIR__, 2) . '/includes/config.php';
       </a>
     </div>
 
+    <div class="nav-item">
+      <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'payments.php' ? 'active' : ''; ?>" href="payments.php">
+        <i class="bi bi-credit-card"></i>
+        <span>Payments</span>
+      </a>
+    </div>
+
     <div class="nav-label">System</div>
 
     <div class="nav-item">

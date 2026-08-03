@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS orders (
   total_amount DECIMAL(10,2) NOT NULL,
   payment_method VARCHAR(50) DEFAULT 'COD',
   payment_status VARCHAR(20) DEFAULT 'pending',
+  transaction_id VARCHAR(50) DEFAULT NULL,
   order_status VARCHAR(20) DEFAULT 'pending',
   name VARCHAR(100) NOT NULL,
   email VARCHAR(100) NOT NULL,
@@ -199,4 +200,27 @@ CREATE TABLE IF NOT EXISTS product_views (
   KEY (user_id),
   KEY (session_id),
   KEY (category_id)
+);
+
+-- Payment transactions table (EasyPay gateway statement)
+CREATE TABLE IF NOT EXISTS payment_transactions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT DEFAULT NULL,
+  order_number VARCHAR(20) DEFAULT NULL,
+  transaction_id VARCHAR(50) DEFAULT NULL,
+  amount DECIMAL(10,2) DEFAULT NULL,
+  currency VARCHAR(10) DEFAULT 'INR',
+  status VARCHAR(20) DEFAULT 'pending',
+  payment_method VARCHAR(10) DEFAULT NULL,
+  payment_account_id INT DEFAULT NULL,
+  payment_account_name VARCHAR(100) DEFAULT NULL,
+  utr_number VARCHAR(50) DEFAULT NULL,
+  payment_proof VARCHAR(255) DEFAULT NULL,
+  customer_name VARCHAR(100) DEFAULT NULL,
+  customer_email VARCHAR(100) DEFAULT NULL,
+  customer_phone VARCHAR(15) DEFAULT NULL,
+  event VARCHAR(50) DEFAULT NULL,
+  raw_payload TEXT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

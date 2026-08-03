@@ -53,7 +53,7 @@ $orders = $orders_q ? $orders_q : false;
               <td><span class="badge-status bg-secondary"><?php echo $o['payment_method']; ?></span></td>
               <td>
                 <span class="badge-status bg-<?php
-                  echo $o['order_status'] == 'delivered' ? 'success' : ($o['order_status'] == 'cancelled' ? 'danger' : ($o['order_status'] == 'shipped' ? 'primary' : 'warning'));
+                  echo $o['order_status'] == 'delivered' ? 'success' : (($o['order_status'] == 'cancelled' || $o['order_status'] == 'rejected') ? 'danger' : (($o['order_status'] == 'shipped' || $o['order_status'] == 'initiated') ? 'primary' : 'warning'));
                 ?>">
                   <span class="dot"></span> <?php echo ucfirst($o['order_status']); ?>
                 </span>

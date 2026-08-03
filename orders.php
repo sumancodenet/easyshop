@@ -29,7 +29,7 @@ $orders = $q ? $q : false;
               <span style="font-size:12px;color:#999;"><?php echo date('d M Y, h:i A', strtotime($o['created_at'])); ?></span>
               <span style="display:inline-block;padding:3px 12px;border-radius:50px;font-size:11px;font-weight:600;text-transform:capitalize;background:<?php
                 $s = $o['order_status'];
-                echo $s == 'delivered' ? '#f0fdf4;color:#059669' : ($s == 'cancelled' ? '#fef2f2;color:#dc2626' : '#fef9c3;color:#b45309');
+                echo $s == 'delivered' ? '#f0fdf4;color:#059669' : (($s == 'cancelled' || $s == 'rejected') ? '#fef2f2;color:#dc2626' : (($s == 'initiated' || $s == 'shipped') ? '#eff6ff;color:#2563eb' : '#fef9c3;color:#b45309'));
               ?>;"><?php echo $s; ?></span>
             </div>
           </div>

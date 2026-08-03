@@ -435,7 +435,9 @@ img { max-width: 100%; height: auto; }
 .ac-order-status.delivered { background:#f0fdf4;color:#059669; }
 .ac-order-status.pending { background:#fef9c3;color:#b45309; }
 .ac-order-status.cancelled { background:#fef2f2;color:#dc2626; }
+.ac-order-status.rejected { background:#fef2f2;color:#dc2626; }
 .ac-order-status.shipped { background:#eff6ff;color:#2563eb; }
+.ac-order-status.initiated { background:#eff6ff;color:#2563eb; }
 .ac-empty { color:#999;font-size:13px;text-align:center;padding:30px 20px; }
 .ac-addr-card { border:1px solid #eee;border-radius:10px;padding:14px;transition:0.2s;background:#fff; }
 .ac-addr-card:hover { border-color:#e0e0e0;box-shadow:0 2px 8px rgba(0,0,0,0.04); }
