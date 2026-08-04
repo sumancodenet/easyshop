@@ -1,7 +1,23 @@
 ﻿<?php require_once 'includes/config.php'; require_once 'includes/easypay.php'; include 'includes/header.php';
 
-// Cancel pending online payment - returns to cart/checkout, no order is created
+// Cancel pending online payment - deletes the initiated order and restores stock
 if (isset($_GET['cancel_payment'])) {
+  $pp = $_SESSION['pending_payment'] ?? null;
+  if ($pp && !empty($pp['order_no'])) {
+    $ono = mysqli_real_escape_string($conn, $pp['order_no']);
+    $oq = mysqli_query($conn, "SELECT id FROM orders WHERE order_number='$ono' AND order_status='initiated' LIMIT 1");
+    if ($oq && $orow = mysqli_fetch_assoc($oq)) {
+      $oid = (int)$orow['id'];
+      $iq = mysqli_query($conn, "SELECT product_id, quantity FROM order_items WHERE order_id=$oid");
+      if ($iq) {
+        while ($it = mysqli_fetch_assoc($iq)) {
+          mysqli_query($conn, "UPDATE products SET stock = stock + " . (int)$it['quantity'] . " WHERE id=" . (int)$it['product_id']);
+        }
+      }
+      mysqli_query($conn, "DELETE FROM order_items WHERE order_id=$oid");
+      mysqli_query($conn, "DELETE FROM orders WHERE id=$oid");
+    }
+  }
   unset($_SESSION['pending_payment']);
   header('Location: cart.php');
   exit;
@@ -138,29 +154,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
   if ($payment === 'Online') {
     // --- ONLINE PAYMENT (EasyPay gateway) ---
-    // Order is NOT created here. It is created only on payment-confirm.php
-    // AFTER the customer submits payment (UTR + proof) and verification.
+    // Order is created HERE with status 'initiated'. The EasyPay SDK creates
+    // the gateway transaction itself (single source of truth) and redirects to
+    // payment-confirm.php only to confirm. Status is flipped by callback.php webhook.
     if (!easypay_configured()) {
       $error = 'Online payment is not configured yet. Please use Cash on Delivery for now.';
     } else {
-      $resp = easypay_create_order([
-        'amount'        => $grand_total,
-        'orderId'       => $order_no,
-        'currency'      => 'INR',
-        'customerName'  => $_POST['name'],
-        'customerEmail' => $_POST['email'],
-        'customerPhone' => $_POST['phone'],
-        'redirectUrl'   => SITE_URL . '/payment-confirm.php',
-        'webhookUrl'    => SITE_URL . '/callback.php',
-      ]);
-      if (!($resp['body']['success'] ?? false)) {
-        $error = 'Payment gateway error: ' . ($resp['body']['message'] ?? 'Could not create order. Please try again.');
-      } else {
-        $data = $resp['body']['data'] ?? [];
-        $txn_id = isset($data['transactionId']) ? mysqli_real_escape_string($conn, $data['transactionId']) : '';
-        // Save pending payment in session - order stored in DB only after payment
+      $q = "INSERT INTO orders (user_id, order_number, total_amount, payment_method, payment_status, order_status, name, email, phone, address) VALUES ($uid, '$order_no', $grand_total, 'Online', 'initiated', 'initiated', '$name', '$email', '$phone', '$address')";
+      if (mysqli_query($conn, $q)) {
+        $oid = mysqli_insert_id($conn);
+        $order_created = true;
         $pending_items = [];
         foreach ($products as $p) {
+          $size_id_sql = $p['cart_size_id'] ? (int)$p['cart_size_id'] : 'NULL';
+          mysqli_query($conn, "INSERT INTO order_items (order_id, product_id, size_id, quantity, price) VALUES ($oid, {$p['id']}, $size_id_sql, {$p['cart_qty']}, {$p['price']})");
+          mysqli_query($conn, "UPDATE products SET stock = stock - {$p['cart_qty']} WHERE id={$p['id']}");
           $pending_items[] = [
             'id'      => (int)$p['id'],
             'size_id' => (int)$p['cart_size_id'],
@@ -168,9 +176,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             'price'   => (float)$p['price'],
           ];
         }
+        // Save pending payment in session - used by payment-confirm.php to sync txn
         $_SESSION['pending_payment'] = [
           'order_no'    => $order_no,
-          'txn_id'      => $txn_id,
+          'txn_id'      => '',
           'grand_total' => $grand_total,
           'items'       => $pending_items,
           'name'        => $_POST['name'],
@@ -178,7 +187,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
           'phone'       => $_POST['phone'],
           'address'     => $address,
         ];
-        $online_txn = $data;
+        // Mark online txn as "pending" so the SDK payment window renders below
+        $online_txn = ['transactionId' => ''];
+      } else {
+        $error = 'Order failed: ' . mysqli_error($conn);
       }
     }
   } else {
@@ -192,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
   }
 
-  if ($order_created) {
+  if ($order_created && $payment !== 'Online') {
     foreach ($products as $p) {
       $size_id_sql = $p['cart_size_id'] ? (int)$p['cart_size_id'] : 'NULL';
       mysqli_query($conn, "INSERT INTO order_items (order_id, product_id, size_id, quantity, price) VALUES ($oid, {$p['id']}, $size_id_sql, {$p['cart_qty']}, {$p['price']})");

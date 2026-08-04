@@ -11,10 +11,16 @@ if (isset($_SESSION['user'])) {
 if (isset($_POST['login'])) {
   $email_phone = mysqli_real_escape_string($conn, $_POST['email_phone']);
   $password = $_POST['password'];
+  $remember = !empty($_POST['remember']);
   $q = mysqli_query($conn, "SELECT * FROM users WHERE email='$email_phone' OR phone='$email_phone'");
   if ($q && $u = mysqli_fetch_assoc($q)) {
     if (password_verify($password, $u['password'])) {
       $_SESSION['user'] = $u;
+      if ($remember) {
+        $token = bin2hex(random_bytes(32));
+        mysqli_query($conn, "UPDATE users SET remember_token='$token' WHERE id={$u['id']}");
+        setcookie('easyshop_remember', $token, time() + 30 * 24 * 3600, '/', '', false, true);
+      }
       $redir = $_SESSION['redirect_after_login'] ?? 'account.php';
       unset($_SESSION['redirect_after_login']);
       header("Location: $redir");
@@ -87,6 +93,12 @@ include 'includes/header.php'; ?>
             <input type="password" name="password" id="loginPass" class="form-control" required placeholder="Password">
             <i class="bi bi-lock input-icon"></i>
             <button type="button" class="toggle-pass" onclick="togglePass('loginPass',this)"><i class="bi bi-eye"></i></button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 2px 14px;font-size:13px;">
+            <label style="display:flex;align-items:center;gap:6px;color:#555;cursor:pointer;">
+              <input type="checkbox" name="remember" style="accent-color:var(--red);width:16px;height:16px;cursor:pointer;" checked>
+              Remember me
+            </label>
           </div>
           <button type="submit" name="login" class="btn-auth"><i class="bi bi-box-arrow-in-right"></i> Sign In</button>
         </form>

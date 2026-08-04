@@ -19,7 +19,24 @@ if (!$conn) {
   die("Connection failed: " . mysqli_connect_error());
 }
 
-define('SITE_URL', 'http://localhost/easyshop');
+// Remember me - auto login from cookie if no active session
+if (empty($_SESSION['user']) && !empty($_COOKIE['easyshop_remember'])) {
+  $token = substr(preg_replace('/[^a-zA-Z0-9]/', '', $_COOKIE['easyshop_remember']), 0, 64);
+  if (strlen($token) === 64) {
+    $token = mysqli_real_escape_string($conn, $token);
+    $q = mysqli_query($conn, "SELECT * FROM users WHERE remember_token='$token' LIMIT 1");
+    if ($q && $u = mysqli_fetch_assoc($q)) {
+      $_SESSION['user'] = $u;
+      // Refresh cookie so it doesn't expire while the user is active
+      setcookie('easyshop_remember', $token, time() + 30 * 24 * 3600, '/', '', false, true);
+    }
+  }
+}
+
+// Site base URL - derived from the current request so it works on any domain
+$https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$site_root = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+define('SITE_URL', $https . '://' . $_SERVER['HTTP_HOST'] . $site_root);
 define('ADMIN_URL', SITE_URL . '/admin');
 
 // EasyPay Payment Gateway
@@ -27,6 +44,6 @@ define('ADMIN_URL', SITE_URL . '/admin');
 define('EASYPAY_API_KEY', 'EP_3DD153A79412422343EC4816FE3167EBBED955DEEB96C1BB');      // starts with EP_
 define('EASYPAY_SECRET_KEY', 'SEC_ED03111933D7C73530C60FC4A003765A5803C9447B7D16BA1621E8C709CFFBEE');   // starts with SEC_
 // Base URL is the ROOT domain - the SDK and API helpers append /api/... themselves
-define('EASYPAY_BASE_URL', 'http://localhost:8080');
-define('EASYPAY_SDK_URL', 'http://localhost:8080/sdk/easypay-sdk.js');
+define('EASYPAY_BASE_URL', 'https://easypay-sigma-two.vercel.app');
+define('EASYPAY_SDK_URL', 'https://easypay-sigma-two.vercel.app/sdk/easypay-sdk.js');
 ?>

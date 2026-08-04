@@ -30,15 +30,24 @@ if ($event === 'payment.submitted') {
 
   if ($txn_id) {
     $esc_txn = mysqli_real_escape_string($conn, $txn_id);
-    $ptx = mysqli_query($conn, "SELECT id, order_id FROM payment_transactions WHERE transaction_id='$esc_txn' LIMIT 1");
     $esc_raw = mysqli_real_escape_string($conn, $raw);
+    $esc_ord = mysqli_real_escape_string($conn, $order_no);
+    // Order is created at checkout.php - find it by order_number to link the transaction
+    $oid_sql = 'NULL';
+    if ($order_no) {
+      $ord = mysqli_query($conn, "SELECT id FROM orders WHERE order_number='$esc_ord' LIMIT 1");
+      if ($ord && $orow = mysqli_fetch_assoc($ord)) {
+        $oid_sql = (int)$orow['id'];
+        // Sync gateway txn id onto the order if it isn't set yet
+        mysqli_query($conn, "UPDATE orders SET transaction_id='$esc_txn' WHERE id={$orow['id']} AND (transaction_id='' OR transaction_id IS NULL)");
+      }
+    }
+    $ptx = mysqli_query($conn, "SELECT id FROM payment_transactions WHERE transaction_id='$esc_txn' LIMIT 1");
     if ($ptx && $row = mysqli_fetch_assoc($ptx)) {
-      mysqli_query($conn, "UPDATE payment_transactions SET status='initiated', utr_number='$utr', payment_method='$method', payment_account_id=$acct_id, event='payment.submitted', raw_payload='$esc_raw' WHERE id={$row['id']}");
+      mysqli_query($conn, "UPDATE payment_transactions SET order_id=$oid_sql, order_number='$esc_ord', status='initiated', utr_number='$utr', payment_method='$method', payment_account_id=$acct_id, event='payment.submitted', raw_payload='$esc_raw' WHERE id={$row['id']}");
     } else {
       // Unknown transaction - record it anyway for reconciliation
-      $esc_ord = mysqli_real_escape_string($conn, $order_no);
-      $oid = isset($row['order_id']) ? (int)$row['order_id'] : 'NULL';
-      mysqli_query($conn, "INSERT INTO payment_transactions (order_id, order_number, transaction_id, status, payment_method, payment_account_id, utr_number, event, raw_payload) VALUES ($oid, '$esc_ord', '$esc_txn', 'initiated', '$method', $acct_id, '$utr', 'payment.submitted', '$esc_raw')");
+      mysqli_query($conn, "INSERT INTO payment_transactions (order_id, order_number, transaction_id, status, payment_method, payment_account_id, utr_number, event, raw_payload) VALUES ($oid_sql, '$esc_ord', '$esc_txn', 'initiated', '$method', $acct_id, '$utr', 'payment.submitted', '$esc_raw')");
     }
   }
   http_response_code(200);
