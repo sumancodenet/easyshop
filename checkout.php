@@ -1,4 +1,4 @@
-﻿<?php require_once 'includes/config.php'; require_once 'includes/easypay.php'; include 'includes/header.php';
+<?php require_once 'includes/config.php'; require_once 'includes/easypay.php'; include 'includes/header.php';
 
 // Cancel pending online payment - deletes the initiated order and restores stock
 if (isset($_GET['cancel_payment'])) {
@@ -47,6 +47,7 @@ $is_buy_now = false;
 
 $buy_now_id = (int)($_GET['buy_now'] ?? ($_POST['buy_now'] ?? 0));
 $buy_now_size = (int)($_GET['size_id'] ?? ($_POST['size_id'] ?? 0));
+$resume_requested = !empty($_GET['resume_payment']) && !empty($_SESSION['pending_payment']['order_no']);
 
 if ($buy_now_id > 0) {
   $is_buy_now = true;
@@ -103,6 +104,8 @@ if ($buy_now_id > 0) {
       }
     }
   }
+} elseif ($resume_requested) {
+  // Resume payment - form/window isi pending order ke liye dikhega, products ki zaroorat nahi
 } else {
   header('Location: cart.php');
   exit;
@@ -146,6 +149,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   $payment = mysqli_real_escape_string($conn, $_POST['payment']);
   $order_no = 'ORD' . strtoupper(uniqid());
   $uid = $user ? $user['id'] : 'NULL';
+
+  // Purani pending (initiated) order ko cleanly cancel karo - stock restore,
+  // history me 'cancelled' status ke saath dikhegi (delete nahi)
+  $old_pending = $_SESSION['pending_payment'] ?? null;
+  if ($old_pending && !empty($old_pending['order_no']) && $old_pending['order_no'] !== $order_no) {
+    es_cancel_initiated_order($conn, $old_pending['order_no']);
+  }
+  if ($uid !== 'NULL') {
+    es_cancel_user_initiated($conn, (int)$uid, $order_no);
+  }
 
   $order_created = false;
   $oid = 0;
@@ -216,13 +229,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   }
 }
 
-// After POST handling: if a pending payment exists (page refresh or payment window closed),
-// re-show the payment window so the customer can retry or cancel.
+// Payment window SIRF tabhi dikhega jab:
+//  - isi request me POST se online order create hua ho, YA
+//  - user ne explicitly ?resume_payment=1 se apna pending payment resume kiya ho
+// Stale pending session kabhi bhi checkout form ko bypass nahi karega -
+// warna doosri order ke Buy Now par purani order ka payment window khul jata hai
 $pending = $_SESSION['pending_payment'] ?? null;
-if ($pending && empty($online_txn)) {
-  $online_txn = ['transactionId' => $pending['txn_id']];
-  $order_no = $pending['order_no'];
-  $grand_total = $pending['grand_total'];
+$show_payment_window = false;
+if (!empty($online_txn) && $order_created) {
+  $show_payment_window = true;
+}
+if (isset($_GET['resume_payment']) && $pending && !empty($pending['order_no'])) {
+  // Verify order ab bhi 'initiated' hai (cancel/approve ho chuka ho to resume mat karo)
+  $vq = mysqli_query($conn, "SELECT order_status FROM orders WHERE order_number='" . mysqli_real_escape_string($conn, $pending['order_no']) . "' LIMIT 1");
+  $still_valid = false;
+  if ($vq) {
+    $vr = mysqli_fetch_assoc($vq);
+    if ($vr) $still_valid = ($vr['order_status'] === 'initiated');
+  }
+  if ($still_valid) {
+    $show_payment_window = true;
+    $order_no = $pending['order_no'];
+    $grand_total = (float)$pending['grand_total'];
+  } else {
+    unset($_SESSION['pending_payment']);
+    $pending = null;
+  }
 }
 ?>
 <div class="container py-4" style="max-width:800px;">
@@ -240,7 +272,7 @@ if ($pending && empty($online_txn)) {
       <p style="color:#999;font-size:14px;">Pay ₹<?php echo number_format($grand_total); ?> at delivery</p>
       <a href="shop.php" class="btn-red" style="text-decoration:none;">Continue Shopping</a>
     </div>
-  <?php elseif (!empty($online_txn)): ?>
+  <?php elseif ($show_payment_window): ?>
     <?php
     $pp = $_SESSION['pending_payment'] ?? null;
     $otx = $online_txn['transactionId'] ?? ($pp['txn_id'] ?? '');
@@ -277,6 +309,18 @@ if ($pending && empty($online_txn)) {
     EasyPay.checkout(<?php echo json_encode($ocheckout); ?>);
     </script>
   <?php else: ?>
+    <?php if ($pending && !$show_payment_window): ?>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div style="font-size:13px;color:#92400e;line-height:1.5;">
+          <i class="bi bi-exclamation-triangle"></i> Aapke paas ek <strong>unpaid order</strong> hai: <strong>#<?php echo htmlspecialchars($pending['order_no']); ?></strong> (₹<?php echo number_format($pending['grand_total']); ?>).<br>
+          <span style="font-size:12px;color:#a16207;">Naya order place karne par ye purana order auto-cancel ho jayega.</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <a href="checkout.php?resume_payment=1" class="btn-outline-red btn-sm" style="text-decoration:none;padding:7px 16px;font-size:12px;"><i class="bi bi-credit-card"></i> Resume Payment</a>
+          <a href="checkout.php?cancel_payment=1" class="btn-outline-secondary btn-sm" style="text-decoration:none;padding:7px 16px;font-size:12px;"><i class="bi bi-x-lg"></i> Cancel Order</a>
+        </div>
+      </div>
+    <?php endif; ?>
     <div class="row g-4">
       <div class="col-lg-7">
         <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:20px;">

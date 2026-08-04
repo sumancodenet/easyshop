@@ -103,3 +103,46 @@ function easypay_verify_signature($payload) {
   $expected = hash_hmac('sha256', $str, EASYPAY_SECRET_KEY);
   return hash_equals($expected, $payload['signature']);
 }
+
+/**
+ * Cancel a single initiated order: restore stock + mark cancelled (keep history)
+ */
+function es_cancel_initiated_order($conn, $order_no) {
+  $esc = mysqli_real_escape_string($conn, $order_no);
+  $oq = mysqli_query($conn, "SELECT id FROM orders WHERE order_number='$esc' AND order_status='initiated' LIMIT 1");
+  if ($oq && $orow = mysqli_fetch_assoc($oq)) {
+    $oid = (int)$orow['id'];
+    es_restore_order_stock($conn, $oid);
+    mysqli_query($conn, "UPDATE orders SET order_status='cancelled', payment_status='cancelled' WHERE id=$oid");
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Cancel all initiated orders of a user (except the given order number)
+ */
+function es_cancel_user_initiated($conn, $user_id, $except_order_no) {
+  $esc = mysqli_real_escape_string($conn, $except_order_no);
+  $oq = mysqli_query($conn, "SELECT id FROM orders WHERE user_id=" . (int)$user_id . " AND order_status='initiated' AND order_number<>'$esc'");
+  if ($oq) {
+    while ($row = mysqli_fetch_assoc($oq)) {
+      $oid = (int)$row['id'];
+      es_restore_order_stock($conn, $oid);
+      mysqli_query($conn, "UPDATE orders SET order_status='cancelled', payment_status='cancelled' WHERE id=$oid");
+    }
+  }
+}
+
+/**
+ * Restore product stock for an order's items
+ */
+function es_restore_order_stock($conn, $order_id) {
+  $oid = (int)$order_id;
+  $iq = mysqli_query($conn, "SELECT product_id, quantity FROM order_items WHERE order_id=$oid");
+  if ($iq) {
+    while ($it = mysqli_fetch_assoc($iq)) {
+      mysqli_query($conn, "UPDATE products SET stock = stock + " . (int)$it['quantity'] . " WHERE id=" . (int)$it['product_id']);
+    }
+  }
+}

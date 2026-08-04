@@ -77,12 +77,21 @@ if ($event === 'payment.status') {
       // Payment approved - order enters normal processing flow
       // Match by transaction_id AND orderId (SDK uses its own transaction, so
       // the callback txn may differ from the one stored on the order)
+      // Guard: sirf 'initiated' orders update hoti hain - cancelled order
+      // late webhook se wapas resurrect nahi hogi
       $esc_ord = mysqli_real_escape_string($conn, $order_no);
-      mysqli_query($conn, "UPDATE orders SET order_status='pending', payment_status='success', transaction_id='$esc_txn' WHERE transaction_id='$esc_txn' OR order_number='$esc_ord'");
+      mysqli_query($conn, "UPDATE orders SET order_status='pending', payment_status='success', transaction_id='$esc_txn' WHERE (transaction_id='$esc_txn' OR order_number='$esc_ord') AND order_status='initiated'");
       $tx_status = 'success';
     } elseif ($status === 'rejected') {
+      // Payment rejected - order cancelled + stock wapas restore
       $esc_ord = mysqli_real_escape_string($conn, $order_no);
-      mysqli_query($conn, "UPDATE orders SET order_status='rejected', payment_status='rejected', transaction_id='$esc_txn' WHERE transaction_id='$esc_txn' OR order_number='$esc_ord'");
+      $rq = mysqli_query($conn, "SELECT id FROM orders WHERE (transaction_id='$esc_txn' OR order_number='$esc_ord') AND order_status='initiated'");
+      if ($rq) {
+        while ($rrow = mysqli_fetch_assoc($rq)) {
+          es_restore_order_stock($conn, (int)$rrow['id']);
+        }
+      }
+      mysqli_query($conn, "UPDATE orders SET order_status='rejected', payment_status='rejected', transaction_id='$esc_txn' WHERE (transaction_id='$esc_txn' OR order_number='$esc_ord') AND order_status='initiated'");
       $tx_status = 'rejected';
     } else {
       $tx_status = $status;
