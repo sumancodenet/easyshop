@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         'customerName'  => $_POST['name'],
         'customerEmail' => $_POST['email'],
         'customerPhone' => $_POST['phone'],
-        'redirectUrl'   => SITE_URL . '/payment-confirm.php?order=' . urlencode($order_no),
+        'redirectUrl'   => SITE_URL . '/payment-confirm.php',
         'webhookUrl'    => SITE_URL . '/callback.php',
       ]);
       if (!($resp['body']['success'] ?? false)) {
@@ -239,7 +239,7 @@ if ($pending && empty($online_txn)) {
       'customerName'  => $pp['name'] ?? ($_POST['name'] ?? ''),
       'customerEmail' => $pp['email'] ?? ($_POST['email'] ?? ''),
       'customerPhone' => $pp['phone'] ?? ($_POST['phone'] ?? ''),
-      'redirectUrl'   => SITE_URL . '/payment-confirm.php?order=' . urlencode($order_no),
+      'redirectUrl'   => SITE_URL . '/payment-confirm.php',
       'webhookUrl'    => SITE_URL . '/callback.php',
     ];
     ?>

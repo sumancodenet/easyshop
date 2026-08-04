@@ -15,6 +15,11 @@ $pay_status = $_GET['status'] ?? '';
 
 $pending = $_SESSION['pending_payment'] ?? null;
 
+// Fallback: if no order param in URL (clean redirect URL), use the pending session order
+if (empty($order_no) && $pending) {
+  $order_no = mysqli_real_escape_string($conn, $pending['order_no']);
+}
+
 // ORDER IS CREATED HERE - only after the customer completed the payment
 // (redirected here by the gateway with transactionId + status=initiated).
 if ($pending && $pending['order_no'] === $order_no) {
