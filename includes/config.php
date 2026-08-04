@@ -41,8 +41,8 @@ define('ADMIN_URL', SITE_URL . '/admin');
 
 // EasyPay Payment Gateway
 // API credentials - generate from EasyPay dashboard under API Credentials
-define('EASYPAY_API_KEY', 'EP_3DD153A79412422343EC4816FE3167EBBED955DEEB96C1BB');      // starts with EP_
-define('EASYPAY_SECRET_KEY', 'SEC_ED03111933D7C73530C60FC4A003765A5803C9447B7D16BA1621E8C709CFFBEE');   // starts with SEC_
+define('EASYPAY_API_KEY', 'EP_586A90193F9B317882701E958187ECCE60EB19017F38D1A4');      // starts with EP_
+define('EASYPAY_SECRET_KEY', 'SEC_6114B2CCB7111863830FD991E4B568D5C591C929B853BFAC540BAE21C80455DE');   // starts with SEC_
 // Base URL is the ROOT domain - the SDK and API helpers append /api/... themselves
 define('EASYPAY_BASE_URL', 'https://easypay-sigma-two.vercel.app');
 define('EASYPAY_SDK_URL', 'https://easypay-sigma-two.vercel.app/sdk/easypay-sdk.js');
